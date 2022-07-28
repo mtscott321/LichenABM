@@ -1,137 +1,69 @@
-breed [mycelae mycelia]
+breed [algae alga]
+algae-own [health age]
 
-globals [mycelae_size]
+globals [algae_starting_size parenthood_age]
 
 to setup
   ca
-  set mycelae_size 5
-  create-mycelae 10 [set shape "line" set color red set size mycelae_size]
   reset-ticks
+  set algae_starting_size 3
+  set parenthood_age 10
+  create-algae 1 [set shape "circle" set color green set size algae_starting_size set health 100 set age 0]
 
 end
 
 
 to go
-
-  carefully [
-    let which random-float (branching + intercalary + apical)
-    if which < branching [ ;;then we will do branching
-      ;; get an agent with preexisting downstreams
-      let trash grow [who] of one-of mycelae with [count my-out-links > 0]
+  ;;if the aplanospore is healthy
+  ask algae [
+    if health > health_requirement [
+      grow who ;l if this algae is healthy, grow it
     ]
-    ifelse which >= branching and which < intercalary + branching [ ;;then we will do intercalary
-      intercalary_grow [who] of one-of mycelae with [count my-out-links > 0]
-    ]
-    [ ;;then we will do apical
-      let trash grow [who] of one-of mycelae with [count my-out-links = 0]
-    ]
-  ] []
-
+  ]
   tick
 
 end
 
-
-;; gets the tip of the mycelia of the agent
-to-report get-tip [id]
-  let h [heading] of turtle id
-  let len ([size] of turtle id ) / 2
-  let d_x (len * (sin h))
-  let d_y (len * (cos h))
-  let x [xcor] of turtle id + d_x
-  let y [ycor] of turtle id + d_y
-  report (list x y)
-
-end
-
-to-report grow [id]
-  ;;get the parent half-size and heading
-  let h [heading] of turtle id
-  let len ([size] of turtle id) / 2
-
-  ;;get the new heading
-  let dir (h + (random-float turn_radius) - (turn_radius / 2))
-
-  ;;calculate the new xcor and ycor of the child
-  let new_x ([xcor] of turtle id) + (len * (sin (dir) + sin(h)))
-  let new_y ([ycor] of turtle id) + (len * (cos (dir) + cos (h)))
-
-
-  let who_child -1
-  ;;make the child
-  create-mycelae 1 [
-    set shape "line"
-    set size mycelae_size
-    set heading dir
-    set xcor new_x
-    set ycor new_y
-    set color red
-
-    ;;this is an external variable
-    set who_child who
-
-  ]
-
-  ask turtle id [create-link-to turtle (who_child) [tie hide-link]]
-
-  report who_child
-
-end
-
-to mark_tip [id]
-  let temp get-tip id
-  let x item 0 temp
-  let y item 1 temp
-  crt 1 [set xcor x set ycor y set color blue set shape "circle" set size 1]
-
-end
-
-to intercalary_grow [id]
-  ;;make a child, adding it as a downstream of the original
-  let child_id grow id
-
-  ;;get a list of the downstreams and pick one to add growth to (pick a downstream agent, who starts that stream)
+to grow [id]
   ask turtle id [
-    if count my-out-links > 0 [
-      ask one-of my-out-links with [[who] of end2 != child_id] [
-        ask end2 [
+    set age age + 1
+    set size size + 1
+    if age >= parenthood_age [
+      ;;get the information to make the children
+      let x xcor
+      let y ycor
 
-          ;;get the values we need for the next calculation (this is basically copied from the TO GROW operation)
-          let temp get-tip child_id
-          let tip_x item 0 temp
-          let tip_y item 1 temp
-          let len ([size] of turtle child_id) / 2
-          let h [heading] of turtle child_id
-          let dir [heading] of self
-
-          ;;find the xy corrdinates of where a new growth would be if it started at the growing tip of the child w the heading of the old downstream
-          let new_x ([xcor] of turtle child_id) + (len * (sin (dir) + sin(h)))
-          let new_y ([ycor] of turtle child_id) + (len * (cos (dir) + cos (h)))
-
-          ;;set the xcor and ycor of the old downstream to be coming from the tip of the new intercalary growth
-          set xcor new_x
-          set ycor new_y
-
-          ;;make a link/tie from the previous downstream to the new child
-          create-link-from turtle (child_id) [tie hide-link ]
-        ]
-      ;;remove the tie and the link between the parent and the previous downstream
-      die
+      let k 0
+      ;;make the children
+      hatch-algae 1 [set size algae_starting_size set health 100 set age 0]
+      while [k < 5] [
+        let newx x + 3 * algae_starting_size * sin(72 * k)
+        let newy y + 3 * algae_starting_size * cos(72 * k)
+        hatch-algae 1 [set xcor newx set ycor newy set color green set size algae_starting_size set health 100 set age 0]
+        set k k + 1
       ]
+      die
+
     ]
+
   ]
 
 
+
 end
+
+
+
+
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
 10
-1011
-820
+647
+448
 -1
 -1
-0.7
+13.0
 1
 10
 1
@@ -141,10 +73,10 @@ GRAPHICS-WINDOW
 1
 1
 1
--400
-400
--400
-400
+-16
+16
+-16
+16
 1
 1
 1
@@ -152,12 +84,12 @@ ticks
 30.0
 
 BUTTON
-10
-490
-73
-523
+18
+26
+81
+59
 NIL
-setup\n
+setup
 NIL
 1
 T
@@ -167,30 +99,15 @@ NIL
 NIL
 NIL
 1
-
-SLIDER
-10
-10
-182
-43
-turn_radius
-turn_radius
-0
-180
-55.0
-1
-1
-NIL
-HORIZONTAL
 
 BUTTON
-90
-490
-153
-523
+23
+128
+86
+161
 NIL
 go
-T
+NIL
 1
 T
 OBSERVER
@@ -201,55 +118,15 @@ NIL
 1
 
 SLIDER
-10
-205
-182
-238
-branching
-branching
-0
-10
-4.2
-0.1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-10
-295
-182
-326
-intercalary
-intercalary
-0
-10
-6.1
-0.1
-1
-NIL
-HORIZONTAL
-
-TEXTBOX
-15
-90
-165
-201
-The percentage of the combined sum of branching, apical, and intercalary will be used to determine the percentages; if you have 50, 50, and 50, then each event will happen with 50/150 = 1/3 probability. 
-11
-0.0
-1
-
-SLIDER
-10
-250
-182
-283
-apical
-apical
+32
+209
+204
+242
+health_requirement
+health_requirement
 0
 100
-89.0
+50.0
 1
 1
 NIL
@@ -614,5 +491,5 @@ true
 Line -7500403 true 150 150 90 180
 Line -7500403 true 150 150 210 180
 @#$#@#$#@
-1
+0
 @#$#@#$#@
