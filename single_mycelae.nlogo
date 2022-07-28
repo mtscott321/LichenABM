@@ -1,298 +1,96 @@
-breed [algae alga]
-breed [fungi fungus]
+breed [mycelae mycelia]
 
-algae-own[
-  health ;;between 0 and 100
-]
-
-fungi-own [
-  food ;;between 0 and 100
-  sending
-  poor_neighbor_sum
-  incoming
-]
-
-patches-own [
-  empty
-  external
-]
-
+globals [mycelae_size algae_size curr]
 
 to setup
-  clear-all
-  reset-ticks
-  ask patches [set empty true]
-  external_internal
-
-  if
-  initial_state = "target" [
-
-    ask patch 0 0 [
-      sprout-algae 1
-      set empty false
-    ]
-
-    ask patch 0 0 [
-      ask n-of 4 neighbors4 [
-        sprout-fungi 1
-        set empty false
-        set external false
-    ]
+  ca
+  set mycelae_size 5
+  set algae_size 5
+  set curr 0
+  crt 1 [set shape "line" set color red set size mycelae_size]
 
 
-    ]
-  ]
+ ; crt 1 [set shape "circle" set color green set size algae_size]
 
+  ;;ask turtle 0 [set heading towards turtle 1]
 
-;    ask patch 0 0  [
-;        ask neighbors4 with [empty] [
-;          set external false
-;          set pcolor blue
-;        ]
-;      ]
-;
-;
-;    ask patches with [not empty] [
-;        ask neighbors with [empty and external] [
-;          sprout-fungi 1
-;          set empty false
-;          set external false
-;        ]
-;      ]
+  ;;gets the tip of the mycelia and makes a little dot agent
+  let temp get-tip 0
+  let x item 0 temp
+  let y item 1 temp
+  ;; crt 1 [set xcor x set ycor y set color blue set shape "circle" set size 0.5]
 
-;  if
- ; initial_state = "
-
-
-  if
-  initial_state = "random" [
-    ask n-of 50 patches [
-      sprout-algae 1
-      set empty false
-      set external false
-    ]
-    ask n-of 50 patches with [empty] [
-      sprout-fungi 1
-      set empty false
-      set external false
-    ]
-  ]
-
-  ask algae [set health 100]
-  ask fungi [set food random 20 + 30]
-
-  fix_color
 
 
 end
+
 
 to go
-  clear-links
-
-  ;;first algae produce food propotional to their health
-  ;;and then send it to their adjacent (Moore adjacency) fungi
-  generate
-
-  ;;now the fungi send the food they have
-  ;;this is a little complicated because we need them all to act simultaneously
-  fungi_send_food
-
-  ;;now fungi will reproduce if they have enough food
-  fungi_go
-
-  ;;now is where we update external and internals
-  external_internal
-
-  ;;now the algal cells will populate random cells proportional to the average of the overall algal health
-  algae_go
-
-  ;;now algae check if they're still alive
-  algae_alive
-
-  ;;now ask fungi if they're alive
-  fungi_alive
-
-  ;;have to call this again since we updated the cells
-  external_internal
-
-  fix_color
+  reset-ticks
+  if curr < 20 [
+  grow curr
+  set curr curr + 1
+  ]
 
   tick
-end
-
-
-;;first algae produce food propotional to their health
-;;and then send it to their adjacent (Moore adjacency) fungi
-to generate
-  ask algae [
-    let temp health / 10
-    ask neighbors [
-      ask fungi-here [
-        set food food + temp
-      ]
-    ]
-  ]
-  fix_color
 
 end
 
-to fungi_send_food
-  ;;calculate how much they're going to send
-  ask fungi [
-    let avg 0
-    ask neighbors [
-      ask fungi-here [
-        set avg avg + food
-      ]
-    ]
-    set avg avg / 4
-    if food > avg [
-      set sending (food - avg) * generosity
-    ]
-  ]
 
-  ;;for each fungi, construct their downstream
-  ask fungi [
-    let t who
-    let temp food
-    let poor 0
-    ;;get their neighboring fungi
-    let ds (list)
-    ;;getting the Moore neighbors
-    ask neighbors [
-      ask fungi-here with [food < temp] [
-        ;;creating a link from the main turtle to the ones with less
-        create-link-from turtle t [hide-link]
-        set poor poor + food
-      ]
-    ]
-    ;;calculating the total amount that the poor neighbors have, so we will send proportional to need
-    set poor_neighbor_sum poor
-  ]
+;; gets the tip of the mycelia of the agent
+to-report get-tip [id]
+  let h [heading] of turtle id
+  let len ([size] of turtle id ) / 2
+  let d_x (len * (sin h))
+  let d_y (len * (cos h))
+  let x [xcor] of turtle id + d_x
+  let y [ycor] of turtle id + d_y
+  report (list x y)
 
-  ;;for each fungi, send food to their downstream
-  ask fungi [
-    let s sending
-    let pns poor_neighbor_sum
-    ;;get the links to the agents they're sending food to
-    ask my-out-links [
-      ask end2 [
-        let temp s * food
-        if pns > 0 [
-          set temp (s * (food / pns)) ]
+end
 
-        set incoming incoming + temp
-    ]
-  ]
-  ]
+to grow [id]
+  ;;get the parent half-size and heading
+  let h [heading] of turtle id
+  let len ([size] of turtle id) / 2
 
-  ;;update each fungi's food to include how much they were sent, and set their incoming food to 0
-  ask fungi [
-    set food food + incoming
-    set incoming 0
+  ;;get the new heading
+  let dir (h + (random-float turn_radius) - (turn_radius / 2))
+
+  ;;calculate the new xcor and ycor of the child
+  let new_x ([xcor] of turtle id) + (len * (sin (dir) + sin(h)))
+  let new_y ([ycor] of turtle id) + (len * (cos (dir) + cos (h)))
+
+
+  ;;make the child
+  create-mycelae 1 [
+    set shape "line"
+    set size mycelae_size
+    set heading dir
+    set xcor new_x
+    set ycor new_y
+    set color red
+
   ]
 
 end
 
-to fungi_go
-   ask fungi with [food > fungi_reproduce ] [
-    let temp food
-    if count (neighbors with [empty]) != 0 [
-      ask one-of neighbors with [empty] [
-        sprout-fungi 1 [set food temp * 0.8]
-        set empty false
-        set external false
-      ]
-    ]
-    set food food * 0.2
-  ]
-  fix_color
-end
-
-to external_internal
-  ask patches [set external false]
-  ask patches with [count neighbors < 8] [ set external true ]
-  let updated true
-  while [updated] [
-    let x count patches with [external]
-    ask patches with [external] [
-        ask neighbors with [count fungi-here = 0] [ set external true ]
-      ]
-    if count patches with [external] = x [ set updated false]
-  ]
-
-end
-
-to algae_go
-  let excess 0
-  ask algae [
-    if health > algae_reproduce [
-    if count (neighbors with [empty]) != 0 [
-      ask one-of neighbors with [empty] [
-        sprout-algae 1 [set health 100]
-        set empty false
-      ]
-      ]
-  ]
-  ]
-  fix_color
-end
-
-;;need to update this a lot, but first add in the spaces needed for the algae to reproduce
-;;shoudl include something to prevent overcrowding of the algae I think
-to algae_alive
-  ask algae [
-
-    let temp count neighbors with [not external] - algae_protectedness_req
-    set health health + 10 * temp
-    if health <= 0 [
-      ask patch-here [set empty true]
-      die
-    ]
-  ]
-
-  fix_color
-end
-
-to fungi_alive
-  ask fungi [
-    if food <= 0 [
-      ask patch-here [set empty true]
-      die
-    ]
-    set food food - 10
-  ]
-end
-
-
-to fix_color
-  ask patches with [empty and not external] [set pcolor black]
-  ask patches with [external] [set pcolor blue]
-
-  ask algae [set color green ]
-  ask fungi [set color red ]
-
-  ask algae [
-    let temp health
-    ask patch-here [set pcolor green]
-  ]
-
-  ask fungi [
-    let temp food
-    ask patch-here [set pcolor red]
-  ]
-
+to mark_tip [id]
+  let temp get-tip id
+  let x item 0 temp
+  let y item 1 temp
+  crt 1 [set xcor x set ycor y set color blue set shape "circle" set size 1]
 
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
-280
-26
-693
-440
+210
+10
+821
+622
 -1
 -1
-5.0
+3.0
 1
 10
 1
@@ -302,23 +100,23 @@ GRAPHICS-WINDOW
 0
 0
 1
--40
-40
--40
-40
-1
-1
+-100
+100
+-100
+100
+0
+0
 1
 ticks
 30.0
 
 BUTTON
-22
-456
-85
-489
+10
+490
+73
+523
 NIL
-setup
+setup\n
 NIL
 1
 T
@@ -329,21 +127,26 @@ NIL
 NIL
 1
 
-CHOOSER
-5
+SLIDER
 10
-143
-55
-initial_state
-initial_state
-"target" "random"
+10
+182
+43
+turn_radius
+turn_radius
 0
+90
+62.0
+1
+1
+NIL
+HORIZONTAL
 
 BUTTON
-109
-460
-172
-493
+90
+490
+153
+523
 NIL
 go
 T
@@ -355,66 +158,6 @@ NIL
 NIL
 NIL
 1
-
-SLIDER
-21
-73
-193
-106
-generosity
-generosity
-0
-1
-0.84
-0.01
-1
-NIL
-HORIZONTAL
-
-SLIDER
-28
-169
-200
-202
-fungi_reproduce
-fungi_reproduce
-0
-100
-80.0
-1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-31
-214
-203
-247
-algae_reproduce
-algae_reproduce
-0
-100
-90.0
-1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-30
-266
-208
-299
-algae_protectedness_req
-algae_protectedness_req
-0
-8
-2.0
-1
-1
-NIL
-HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
@@ -775,5 +518,5 @@ true
 Line -7500403 true 150 150 90 180
 Line -7500403 true 150 150 210 180
 @#$#@#$#@
-0
+1
 @#$#@#$#@
