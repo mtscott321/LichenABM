@@ -1,14 +1,22 @@
 breed [algae alga]
 algae-own [health age]
 
-globals [algae_starting_size parenthood_age]
+globals [algae_starting_size parenthood_age growth_rate delta]
+
+turtles-own [my-neighbors]
 
 to setup
   ca
   reset-ticks
-  set algae_starting_size 3
-  set parenthood_age 10
+  ;;setting all the kinda boring globals that I dont' want to make sliders
+  set algae_starting_size 4
+  set parenthood_age 100
+  set growth_rate 0.1
+  set delta 0.1
+
   create-algae 1 [set shape "circle" set color green set size algae_starting_size set health 100 set age 0]
+  create-algae 1 [set shape "circle" set color green set size algae_starting_size set health 100 set age 0
+  set xcor 5 set ycor 5]
 
 end
 
@@ -19,7 +27,9 @@ to go
     if health > health_requirement [
       grow who ;l if this algae is healthy, grow it
     ]
+    wiggle who
   ]
+  c
   tick
 
 end
@@ -27,7 +37,7 @@ end
 to grow [id]
   ask turtle id [
     set age age + 1
-    set size size + 1
+    set size size + growth_rate
     if age >= parenthood_age [
       ;;get the information to make the children
       let x xcor
@@ -39,7 +49,7 @@ to grow [id]
       while [k < 5] [
         let newx x + 3 * algae_starting_size * sin(72 * k)
         let newy y + 3 * algae_starting_size * cos(72 * k)
-        hatch-algae 1 [set xcor newx set ycor newy set color green set size algae_starting_size set health 100 set age 0]
+        hatch-algae 1 [set xcor newx set ycor newy set size algae_starting_size set health 100 set age 0]
         set k k + 1
       ]
       die
@@ -47,14 +57,29 @@ to grow [id]
     ]
 
   ]
+end
 
-
+;;this is where I call it Brownian motion to sound smart
+to wiggle [id]
+  ask turtle id [
+    set heading random 360
+    fd delta
+  ]
 
 end
 
+to check_collision
+  ask turtles [
+    let max_size algae_starting_size + parenthood_age * growth_rate
+    ;;got this form the GasLab Circular Particles collision test
+    set my-neighbors (other turtles) in-radius ((size + max_size) / 2) with [distance myself < (size + [size] of myself) / 2 ]
+  ]
+end
+
+to fix_collisions
 
 
-
+end
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
@@ -107,7 +132,7 @@ BUTTON
 161
 NIL
 go
-NIL
+T
 1
 T
 OBSERVER
