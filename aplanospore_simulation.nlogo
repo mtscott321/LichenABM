@@ -5,6 +5,8 @@ globals [algae_starting_size parenthood_age growth_rate delta]
 
 turtles-own [my-neighbors]
 
+links-own [strength]
+
 to setup
   ca
   reset-ticks
@@ -29,7 +31,9 @@ to go
     ]
     wiggle who
   ]
+  clear-links
   check_collisions
+  fix_collisions
   tick
 
 end
@@ -72,15 +76,47 @@ to check_collisions
   ask turtles [
     let max_size algae_starting_size + parenthood_age * growth_rate
     ;;got this form the GasLab Circular Particles collision test
-    set my-neighbors (other turtles) in-radius ((size + max_size) / 2) with [distance myself < (size + [size] of myself) / 2 ]
+    let s who
+    ask (other turtles) in-radius ((size + max_size) / 2) with [distance myself < (size + [size] of myself) / 2 ] [
+      ;;compute overlap = sum(radii) - distance
+      let str (size + [size] of (turtle s))  - (distance (turtle s))
+      create-link-with (turtle s) [set strength str hide-link]
+    ]
   ]
+
 end
 
 to fix_collisions
-  ask algae [
+
+  ;;while there are still links
+  while [count links > 0] [
+    ;;get the turtles involved in the strongest link (most overlap)
+    let m max [strength] of links
+    let conns (list)
+    let curr -1
+    ask links with [strength = m] [
+      set curr self
+      set conns (list end1 end2)
+    ]
+
+    ;;change the heading so they are pointed away from eachother
+    ask first conns [
+      set heading towards last conns
+      set heading heading + 180
+      fd ([strength] of curr) / 4
+    ]
+    ask last conns [
+      set heading towards first conns
+      set heading heading + 180
+      fd ([strength] of curr) / 4
+    ]
+    ask curr [die]
+
 
 
   ]
+
+
 
 
 
