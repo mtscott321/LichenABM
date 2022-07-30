@@ -1,43 +1,78 @@
 breed [algae alga]
 algae-own [health age]
+breed [mycelae mycelia]
 
-globals [algae_starting_size parenthood_age growth_rate delta]
+directed-link-breed [streams stream] ;;mycelae stream link
+directed-link-breed [symbios symbio] ;;mycelae to aplanospore link
+undirected-link-breed [overlaps overlap]
+overlaps-own [strength]
 
-links-own [strength]
+globals [mycelae_size
+  algae_starting_size
+  parenthood_age
+  growth_rate
+  delta]
 
 to setup
   ca
   reset-ticks
-  ;;setting all the kinda boring globals that I dont' want to make sliders
-  set algae_starting_size 0.3
-  set parenthood_age 10
-  set growth_rate 0.1
-  set delta 0.1
 
-  create-algae 1 [set shape "circle" set color green set size algae_starting_size set health 100 set age 0 set xcor 15.5 set ycor 15.5]
+  ;;setting all the kinda boring globals that I dont' want to make sliders
+  set algae_starting_size 100
+  set parenthood_age 10
+  set growth_rate 10 ;;growing each time
+  set delta 0. ;;how much to stochastically wiggle
+  set mycelae_size 5
+
+  ;;creating the starting agents. This will eventually depend on the way we want to start (random, isidia, soredia, etc)
+  create-mycelae 10 [set shape "line" set color red set size mycelae_size]
+
+  create-algae 1 [set shape "circle" set color green set size algae_starting_size set health 100 set age 0]
 
 
 end
 
 
+
 to go
+
+  ;;algae growth
   ;;if the aplanospore is healthy
   ask algae [
     if health > health_requirement [
-      grow who ;l if this algae is healthy, grow it
+      grow_algae who ;l if this algae is healthy, grow it
     ]
     if health <= 0 [die]
     wiggle who
   ]
-  clear-links
+  ask overlaps [die]
   check_collisions
   fix_collisions
 
+  ;;now fungi and this all needs to change lmao
+  carefully [
+    let which random-float (branching + intercalary + apical)
+    if which < branching [ ;;then we will do branching
+      ;; get an agent with preexisting downstreams
+      let trash grow_fungi [who] of one-of mycelae with [count my-out-streams > 0]
+    ]
+    ifelse which >= branching and which < intercalary + branching [ ;;then we will do intercalary
+      intercalary_grow [who] of one-of mycelae with [count my-out-streams > 0]
+    ]
+    [ ;;then we will do apical
+      let trash grow_fungi [who] of one-of mycelae with [count my-out-streams = 0]
+    ]
+  ] []
+
+
+
   tick
+
 
 end
 
-to grow [id]
+
+to grow_algae [id]
   ask turtle id [
     set age age + 1
     set size size + growth_rate
@@ -71,35 +106,45 @@ to wiggle [id]
 
 end
 
+;;update to make it the specific kind of link we need
 to check_collisions
   ask algae [
     let max_size algae_starting_size + parenthood_age * growth_rate
     ;;got this form the GasLab Circular Particles collision test
     let s who
-    ask (other turtles) in-radius ((size + max_size) / 2) with [distance myself < (size + [size] of myself) / 2 ] [
+    ask (other algae) in-radius ((size + max_size) / 2) with [distance myself < (size + [size] of myself) / 2 ] [
       ;;compute overlap = sum(radii) - distance
       let str (size + [size] of (turtle s))  - (distance (turtle s))
-      create-link-with (turtle s) [set strength str hide-link]
+      create-overlap-with (turtle s) [set strength str hide-link]
     ]
   ]
 
 end
 
+
+;;update so that it's just the specific links and not all, since we need other links for fungi
 to fix_collisions
 
   ;;while there are still links
-  while [count links > 0] [
+  while [count overlaps > 0] [
     ;;get the turtles involved in the strongest link (most overlap)
-    let m max [strength] of links
+    let m max [strength] of overlaps
     let conns (list)
     let curr -1
-    ask links with [strength = m] [
+    ask overlaps with [strength = m] [
       set curr self
       set conns (list end1 end2)
     ]
 
+    ;;sometimes they will randomly end up being at the exact same location, so we randomly move them
+    ifelse ([xcor] of first conns = [xcor] of last conns and [ycor] of first conns = [ycor] of last conns) [
+      ask first conns [set heading random 360]
+      ask last conns [set heading 180 + [heading] of first conns]
+    ]
+    [
     ;;change the heading so they are pointed away from eachother
     ask first conns [
+
       set heading towards last conns
       set heading heading + 180
       fd ([strength] of curr) / 8
@@ -110,42 +155,209 @@ to fix_collisions
       fd ([strength] of curr) / 8
     ]
     ask curr [die]
+    ]
   ]
+
+end
+
+to test
+
+
+end
+
+;;now the fungi-only ones
+to-report grow_fungi [id]
+  ;;get the parent half-size and heading
+  let h [heading] of turtle id
+  let len ([size] of turtle id) / 2
+
+  ;;get the new heading
+  let dir (h + (random-float turn_radius) - (turn_radius / 2))
+
+  ;;calculate the new xcor and ycor of the child
+  let new_x ([xcor] of turtle id) + (len * (sin (dir) + sin(h)))
+  let new_y ([ycor] of turtle id) + (len * (cos (dir) + cos (h)))
+
+
+  let who_child -1
+  ;;make the child
+  create-mycelae 1 [
+    set shape "line"
+    set size mycelae_size
+    set heading dir
+    set xcor new_x
+    set ycor new_y
+    set color red
+
+    ;;this is an external variable
+    set who_child who
+
+  ]
+
+  ;;make it a specific kind of link
+  ask turtle id [create-stream-to turtle (who_child) [tie hide-link]]
+
+  report who_child
+
+end
+
+to intercalary_grow [id]
+  ;;make a child, adding it as a downstream of the original
+  let child_id grow_fungi id
+
+  ;;get a list of the downstreams and pick one to add growth to (pick a downstream agent, who starts that stream)
+  ask turtle id [
+    if count my-out-streams > 0 [
+      ask one-of my-out-streams with [[who] of end2 != child_id] [
+        ask end2 [
+
+          ;;get the values we need for the next calculation (this is basically copied from the TO GROW operation)
+          let temp get-tip child_id
+          let tip_x item 0 temp
+          let tip_y item 1 temp
+          let len ([size] of turtle child_id) / 2
+          let h [heading] of turtle child_id
+          let dir [heading] of self
+
+          ;;find the xy corrdinates of where a new growth would be if it started at the growing tip of the child w the heading of the old downstream
+          let new_x ([xcor] of turtle child_id) + (len * (sin (dir) + sin(h)))
+          let new_y ([ycor] of turtle child_id) + (len * (cos (dir) + cos (h)))
+
+          ;;set the xcor and ycor of the old downstream to be coming from the tip of the new intercalary growth
+          set xcor new_x
+          set ycor new_y
+
+          ;;make a link/tie from the previous downstream to the new child
+          create-stream-from turtle (child_id) [tie hide-link ]
+        ]
+      ;;remove the tie and the link between the parent and the previous downstream
+      die
+      ]
+    ]
+  ]
+
+
+end
+
+;; gets the tip of the mycelia of the agent
+to-report get-tip [id]
+  let h [heading] of turtle id
+  let len ([size] of turtle id ) / 2
+  let d_x (len * (sin h))
+  let d_y (len * (cos h))
+  let x [xcor] of turtle id + d_x
+  let y [ycor] of turtle id + d_y
+  report (list x y)
 
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
 10
-647
-448
+778
+579
 -1
 -1
-13.0
+0.7
 1
 10
 1
 1
 1
 0
+1
+1
+1
+-400
+400
+-400
+400
 0
 0
-1
--16
-16
--16
-16
-1
-1
 1
 ticks
 30.0
 
+SLIDER
+17
+78
+189
+111
+health_requirement
+health_requirement
+0
+100
+50.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+17
+25
+189
+58
+turn_radius
+turn_radius
+0
+180
+50.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+22
+131
+194
+164
+branching
+branching
+0
+10
+4.0
+0.1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+23
+188
+195
+221
+apical
+apical
+0
+100
+89.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+25
+263
+197
+296
+intercalary
+intercalary
+0
+10
+6.1
+0.1
+1
+NIL
+HORIZONTAL
+
 BUTTON
-18
-26
-81
-59
+21
+356
+84
+389
 NIL
 setup
 NIL
@@ -159,13 +371,13 @@ NIL
 1
 
 BUTTON
-23
-128
-86
-161
+120
+360
+183
+393
 NIL
 go
-T
+NIL
 1
 T
 OBSERVER
@@ -174,21 +386,6 @@ NIL
 NIL
 NIL
 1
-
-SLIDER
-32
-209
-204
-242
-health_requirement
-health_requirement
-0
-100
-50.0
-1
-1
-NIL
-HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?

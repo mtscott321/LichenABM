@@ -3,22 +3,19 @@ algae-own [health age]
 
 globals [algae_starting_size parenthood_age growth_rate delta]
 
-turtles-own [my-neighbors]
-
 links-own [strength]
 
 to setup
   ca
   reset-ticks
   ;;setting all the kinda boring globals that I dont' want to make sliders
-  set algae_starting_size 4
-  set parenthood_age 100
+  set algae_starting_size 0.3
+  set parenthood_age 10
   set growth_rate 0.1
   set delta 0.1
 
-  create-algae 1 [set shape "circle" set color green set size algae_starting_size set health 100 set age 0]
-  create-algae 1 [set shape "circle" set color green set size algae_starting_size set health 100 set age 0
-  set xcor 5 set ycor 5]
+  create-algae 1 [set shape "circle" set color green set size algae_starting_size set health 100 set age 0 set xcor 15.5 set ycor 15.5]
+
 
 end
 
@@ -29,11 +26,13 @@ to go
     if health > health_requirement [
       grow who ;l if this algae is healthy, grow it
     ]
+    if health <= 0 [die]
     wiggle who
   ]
   clear-links
   check_collisions
   fix_collisions
+
   tick
 
 end
@@ -73,7 +72,7 @@ to wiggle [id]
 end
 
 to check_collisions
-  ask turtles [
+  ask algae [
     let max_size algae_starting_size + parenthood_age * growth_rate
     ;;got this form the GasLab Circular Particles collision test
     let s who
@@ -103,25 +102,15 @@ to fix_collisions
     ask first conns [
       set heading towards last conns
       set heading heading + 180
-      fd ([strength] of curr) / 2
+      fd ([strength] of curr) / 8
     ]
     ask last conns [
       set heading towards first conns
       set heading heading + 180
-      fd ([strength] of curr) /
+      fd ([strength] of curr) / 8
     ]
     ask curr [die]
-
-
-
   ]
-
-
-
-
-
-
-
 
 end
 @#$#@#$#@
