@@ -1,5 +1,5 @@
 breed [algae alga]
-algae-own [health age]
+algae-own [health]
 breed [mycelae mycelia]
 
 directed-link-breed [streams stream] ;;mycelae stream link
@@ -9,7 +9,7 @@ overlaps-own [strength]
 
 globals [mycelae_size
   algae_starting_size
-  parenthood_age
+  parenthood_size
   growth_rate
   delta]
 
@@ -18,16 +18,16 @@ to setup
   reset-ticks
 
   ;;setting all the kinda boring globals that I dont' want to make sliders
-  set algae_starting_size 100
-  set parenthood_age 10
-  set growth_rate 10 ;;growing each time
-  set delta 0. ;;how much to stochastically wiggle
+  set algae_starting_size 10
+  set parenthood_size 20
+  set growth_rate 0.2 ;;growing each time
+  set delta 1 ;;how much to stochastically wiggle
   set mycelae_size 5
 
   ;;creating the starting agents. This will eventually depend on the way we want to start (random, isidia, soredia, etc)
   create-mycelae 10 [set shape "line" set color red set size mycelae_size]
 
-  create-algae 1 [set shape "circle" set color green set size algae_starting_size set health 100 set age 0]
+  create-algae 1 [set shape "circle" set color green set size algae_starting_size set health 100 ]
 
 
 end
@@ -39,8 +39,8 @@ to go
   ;;algae growth
   ;;if the aplanospore is healthy
   ask algae [
-    if health > health_requirement [
-      grow_algae who ;l if this algae is healthy, grow it
+    if random 100 < health [
+      grow_algae who ;if this algae is healthy, grow it
     ]
     if health <= 0 [die]
     wiggle who
@@ -74,20 +74,20 @@ end
 
 to grow_algae [id]
   ask turtle id [
-    set age age + 1
     set size size + growth_rate
-    if age >= parenthood_age [
+    if size >= parenthood_size and random 10 = 0[ ;;the random 10 thing is literally just a super arbitrary parameter to get it to stagger parenthood
       ;;get the information to make the children
       let x xcor
       let y ycor
 
       let k 0
       ;;make the children
-      hatch-algae 1 [set size algae_starting_size set health 100 set age 0]
-      while [k < 5] [
-        let newx x + 3 * algae_starting_size * sin(72 * k)
-        let newy y + 3 * algae_starting_size * cos(72 * k)
-        hatch-algae 1 [set xcor newx set ycor newy set size algae_starting_size set health 100 set age 0]
+      hatch-algae 1 [set size algae_starting_size set health 100]
+      let n 2 + random 5
+      while [k < n] [
+        let newx x + 3 * algae_starting_size * sin((360 / n) * k)
+        let newy y + 3 * algae_starting_size * cos((360 / n) * k)
+        hatch-algae 1 [set xcor newx set ycor newy set size algae_starting_size set health 100]
         set k k + 1
       ]
       die
@@ -109,7 +109,7 @@ end
 ;;update to make it the specific kind of link we need
 to check_collisions
   ask algae [
-    let max_size algae_starting_size + parenthood_age * growth_rate
+    let max_size parenthood_size
     ;;got this form the GasLab Circular Particles collision test
     let s who
     ask (other algae) in-radius ((size + max_size) / 2) with [distance myself < (size + [size] of myself) / 2 ] [
@@ -138,8 +138,8 @@ to fix_collisions
 
     ;;sometimes they will randomly end up being at the exact same location, so we randomly move them
     ifelse ([xcor] of first conns = [xcor] of last conns and [ycor] of first conns = [ycor] of last conns) [
-      ask first conns [set heading random 360]
-      ask last conns [set heading 180 + [heading] of first conns]
+      ask first conns [set heading random 360 set health health - algae_sensitivity]
+      ask last conns [set heading 180 + [heading] of first conns set health health - algae_sensitivity]
     ]
     [
     ;;change the heading so they are pointed away from eachother
@@ -148,13 +148,15 @@ to fix_collisions
       set heading towards last conns
       set heading heading + 180
       fd ([strength] of curr) / 8
+      set health health - algae_sensitivity
     ]
     ask last conns [
       set heading towards first conns
       set heading heading + 180
       fd ([strength] of curr) / 8
-    ]
-    ask curr [die]
+      set health health - algae_sensitivity
+      ]
+    ask curr [die] ;;asking the link to die
     ]
   ]
 
@@ -280,21 +282,6 @@ ticks
 
 SLIDER
 17
-78
-189
-111
-health_requirement
-health_requirement
-0
-100
-50.0
-1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-17
 25
 189
 58
@@ -377,7 +364,7 @@ BUTTON
 393
 NIL
 go
-NIL
+T
 1
 T
 OBSERVER
@@ -387,14 +374,43 @@ NIL
 NIL
 1
 
+SLIDER
+28
+318
+200
+351
+algae_sensitivity
+algae_sensitivity
+0
+100
+100.0
+1
+1
+NIL
+HORIZONTAL
+
 @#$#@#$#@
 ## WHAT IS IT?
 
-(a general understanding of what the model is trying to show or explain)
+This is a simluation of the basic symbiotic interactions that occur in lichen: the interaction between a fungi (mycobiont) and an algae/cyanobacteria (photobiont).
 
 ## HOW IT WORKS
 
-(what rules the agents use to create the overall behavior of the model)
+There are two agent types: the algae and the mycelae (photo and mycobiont, respectively). 
+
+### ALGAE
+The algae have a parameter, HEALTH, which determines their growth rate and photosynthetic output. In the base model, the only thing that affects their health is the crowding around them; if the algal density in a place is too high, the population will suffer and die off. 
+
+Healthy algae are able to produce more energy, which is then siphoned off to mycelae attached to them. Over time, algae will grow in size proportional to their health and the GROWTH_RATE paramter. Once the PARENTHOOD_SIZE has been reached, the algae will split into daughter cells, mimicking an aplanospore. 
+
+The algae will also wiggle around randomly in step sizes determined by the DELTA parameter, unless they are attached to mycelae. 
+
+Sometimes algae will bump into each other. If this happens, they will move away from each other. If this causes new collisions, they will be resolved at the next tick. These collisions are also what determines the overcrowding that effects health; the more collisions, the less healthy the algae. Their sensitivity to voercrowding is determined by the ALGAE_SENSITIVITY parameter.
+
+### MYCELAE
+
+Mycelae spread around the space in lines, which are tied to each other and which send nutrients along their path. 
+
 
 ## HOW TO USE IT
 
