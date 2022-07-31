@@ -10,7 +10,6 @@ overlaps-own [strength]
 globals [mycelae_size
   algae_starting_size
   parenthood_size
-  growth_rate
   delta]
 
 to setup
@@ -18,9 +17,8 @@ to setup
   reset-ticks
 
   ;;setting all the kinda boring globals that I dont' want to make sliders
-  set algae_starting_size 10
-  set parenthood_size 20
-  set growth_rate 0.2 ;;growing each time
+  set algae_starting_size 5
+  set parenthood_size 10
   set delta 1 ;;how much to stochastically wiggle
   set mycelae_size 5
 
@@ -64,7 +62,7 @@ to go
     ]
   ] []
 
-
+  associate
 
   tick
 
@@ -74,19 +72,19 @@ end
 
 to grow_algae [id]
   ask turtle id [
-    set size size + growth_rate
-    if size >= parenthood_size a[
+    if size < parenthood_size [set size size + growth_rate]
+    if size >= parenthood_size and count my-symbios > 0 [ ;aplanospore only gets punctured if there are mycelae connected
       ;;get the information to make the children
       let x xcor
       let y ycor
-
+      ask my-symbios [die]
       let k 0
       ;;make the children
       hatch-algae 1 [set size algae_starting_size set health 100]
       let n 2 + random 5
       while [k < n] [
-        let newx x + 3 * algae_starting_size * sin((360 / n) * k)
-        let newy y + 3 * algae_starting_size * cos((360 / n) * k)
+        let newx x + 2.5 * algae_starting_size * sin((360 / n) * k)
+        let newy y + 2.5 * algae_starting_size * cos((360 / n) * k)
         hatch-algae 1 [set xcor newx set ycor newy set size algae_starting_size set health 100]
         set k k + 1
       ]
@@ -100,33 +98,41 @@ end
 ;;this is where I call it Brownian motion to sound smart
 to wiggle [id]
   ask turtle id [
+    if count my-symbios = 0 [
     set heading random 360
     fd delta
+    ]
   ]
 
 end
 
 ;;update to make it the specific kind of link we need
 to check_collisions
+
   ask algae [
     let max_size parenthood_size
     ;;got this form the GasLab Circular Particles collision test
     let s who
-    ask (other algae) in-radius ((size + max_size) / 2) with [distance myself < (size + [size] of myself) / 2 ] [
+    ask other algae in-radius ((size + max_size) / 2) with [distance myself < (size + [size] of myself) / 2 ] [
       ;;compute overlap = sum(radii) - distance
       let str (size + [size] of (turtle s))  - (distance (turtle s))
       create-overlap-with (turtle s) [set strength str hide-link]
+      set health health - algae_sensitivity
+
+
     ]
   ]
 
 end
 
 
-;;update so that it's just the specific links and not all, since we need other links for fungi
+;;update so that
 to fix_collisions
+
 
   ;;while there are still links
   while [count overlaps > 0] [
+    output-print "in fix collisions"
     ;;get the turtles involved in the strongest link (most overlap)
     let m max [strength] of overlaps
     let conns (list)
@@ -140,21 +146,25 @@ to fix_collisions
     ifelse ([xcor] of first conns = [xcor] of last conns and [ycor] of first conns = [ycor] of last conns) [
       ask first conns [set heading random 360 set health health - algae_sensitivity]
       ask last conns [set heading 180 + [heading] of first conns set health health - algae_sensitivity]
+      ask curr [die]
     ]
     [
     ;;change the heading so they are pointed away from eachother
     ask first conns [
-
-      set heading towards last conns
-      set heading heading + 180
-      fd ([strength] of curr) / 8
-      set health health - algae_sensitivity
+      if count my-symbios = 0 [ ;;if not linked to a mycelae (if it is, it can't move)
+          set heading towards last conns
+          set heading heading + 180
+          fd ([strength] of curr) / 8
+          set health health - algae_sensitivity
+        ]
     ]
     ask last conns [
-      set heading towards first conns
-      set heading heading + 180
-      fd ([strength] of curr) / 8
-      set health health - algae_sensitivity
+        if count my-symbios = 0 [ ;;if not linked to a mycelae (if it is, it can't move)
+          set heading towards first conns
+          set heading heading + 180
+          fd ([strength] of curr) / 8
+          set health health - algae_sensitivity
+        ]
       ]
     ask curr [die] ;;asking the link to die
     ]
@@ -252,15 +262,28 @@ to-report get-tip [id]
   report (list x y)
 
 end
+
+;;make the mycelae associate with nearby algae
+to associate
+
+  ask mycelae [
+    let s who
+    ask (algae) in-radius parenthood_size with [distance myself < (size) / 2 and count my-symbios = 0] [
+      ;;compute overlap = sum(radii) - distance
+      create-symbio-from (turtle s) [hide-link tie]
+    ]
+
+  ]
+end
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
 10
-778
-579
+1011
+820
 -1
 -1
-0.7
+0.9900125
 1
 10
 1
@@ -274,8 +297,8 @@ GRAPHICS-WINDOW
 400
 -400
 400
-0
-0
+1
+1
 1
 ticks
 30.0
@@ -334,7 +357,7 @@ intercalary
 intercalary
 0
 10
-6.1
+10.0
 0.1
 1
 NIL
@@ -383,8 +406,23 @@ algae_sensitivity
 algae_sensitivity
 0
 100
-100.0
+29.0
 1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+28
+448
+200
+481
+growth_rate
+growth_rate
+0
+1
+0.06
+0.01
 1
 NIL
 HORIZONTAL
@@ -401,7 +439,7 @@ There are two agent types: the algae and the mycelae (photo and mycobiont, respe
 ### ALGAE
 The algae have a parameter, HEALTH, which determines their growth rate and photosynthetic output. In the base model, the only thing that affects their health is the crowding around them; if the algal density in a place is too high, the population will suffer and die off. 
 
-Healthy algae are able to produce more energy, which is then siphoned off to mycelae attached to them. Over time, algae will grow in size proportional to their health and the GROWTH_RATE paramter. Once the PARENTHOOD_SIZE has been reached, the algae will split into daughter cells, mimicking an aplanospore. 
+Healthy algae are able to produce more energy, which is then siphoned off to mycelae attached to them. Over time, algae will grow in size proportional to their health and the GROWTH_RATE paramter. Once the PARENTHOOD_SIZE has been reached, the algae will split into daughter cells, mimicking an aplanospore.
 
 The algae will also wiggle around randomly in step sizes determined by the DELTA parameter, unless they are attached to mycelae. 
 

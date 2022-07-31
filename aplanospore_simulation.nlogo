@@ -14,7 +14,7 @@ to setup
   set growth_rate 0.1
   set delta 0.1
 
-  create-algae 1 [set shape "circle" set color green set size algae_starting_size set health 100 set age 0 set xcor 15.5 set ycor 15.5]
+  create-algae 1 [set shape "circle" set color green set size algae_starting_size set health 100 set age 0]
 
 
 end
