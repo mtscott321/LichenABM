@@ -1,6 +1,7 @@
 breed [algae alga]
 algae-own [health]
 breed [mycelae mycelia]
+mycelae-own [food temp_food]
 
 directed-link-breed [streams stream] ;;mycelae stream link
 directed-link-breed [symbios symbio] ;;mycelae to aplanospore link
@@ -23,7 +24,7 @@ to setup
   set mycelae_size 5
 
   ;;creating the starting agents. This will eventually depend on the way we want to start (random, isidia, soredia, etc)
-  create-mycelae 10 [set shape "line" set color red set size mycelae_size]
+  create-mycelae 10 [set shape "line" set color red set size mycelae_size set food 1]
 
   create-algae 1 [set shape "circle" set color green set size algae_starting_size set health 100 ]
 
@@ -47,22 +48,33 @@ to go
   check_collisions
   fix_collisions
 
-  ;;now fungi and this all needs to change lmao
-  carefully [
+  ;;mycelial growth
+  ;;mycelae get nutrients from algae
+  nutrients
+
+  ;;mycelae send nutrients to neighbors
+  mycelial_diffusion
+
+  ;;mycelae grow if they have enough food -- each one has a certain branching probability
+
+  ;;change mycelial colors to show food flow
+  mycelial_color
+  ;;associate mycelae with algae
+  associate
+
+   carefully [
     let which random-float (branching + intercalary + apical)
     if which < branching [ ;;then we will do branching
       ;; get an agent with preexisting downstreams
-      let trash grow_fungi [who] of one-of mycelae with [count my-out-streams > 0]
+      let trash grow_fungi [who] of one-of mycelae with [count my-out-links > 0]
     ]
     ifelse which >= branching and which < intercalary + branching [ ;;then we will do intercalary
-      intercalary_grow [who] of one-of mycelae with [count my-out-streams > 0]
+      intercalary_grow [who] of one-of mycelae with [count my-out-links > 0]
     ]
     [ ;;then we will do apical
-      let trash grow_fungi [who] of one-of mycelae with [count my-out-streams = 0]
+      let trash grow_fungi [who] of one-of mycelae with [count my-out-links = 0]
     ]
   ] []
-
-  associate
 
   tick
 
@@ -172,11 +184,6 @@ to fix_collisions
 
 end
 
-to test
-
-
-end
-
 ;;now the fungi-only ones
 to-report grow_fungi [id]
   ;;get the parent half-size and heading
@@ -219,6 +226,7 @@ to intercalary_grow [id]
 
   ;;get a list of the downstreams and pick one to add growth to (pick a downstream agent, who starts that stream)
   ask turtle id [
+    ;;only works if there are existing downstreams; if there aren't, we can't do intercalary
     if count my-out-streams > 0 [
       ask one-of my-out-streams with [[who] of end2 != child_id] [
         ask end2 [
@@ -245,7 +253,9 @@ to intercalary_grow [id]
       ;;remove the tie and the link between the parent and the previous downstream
       die
       ]
+
     ]
+
   ]
 
 
@@ -275,6 +285,57 @@ to associate
 
   ]
 end
+
+to nutrients
+  ;;is it faster/easier to ask the mycelae to get nutrients, or to ask the algae to send nutrients?
+
+  ask mycelae [
+    ;;should alter to make this representative of actual chemical diffuson gradient
+    let temp food
+    ask algae in-radius parenthood_size with [distance myself < (size * 1.5) ] [
+      set temp temp + 10 * (((size * 1.5) - distance myself) / parenthood_size) ;;assuming linear concentration gradient
+    ]
+    set food temp
+  ]
+
+end
+
+
+
+to mycelial_diffusion
+
+  ask mycelae with [food > 0][
+    let sum_inverses 0
+    ask stream-neighbors [
+      ifelse food > 0 [
+      set sum_inverses sum_inverses + (1 / food)
+      ][set sum_inverses sum_inverses + 2]
+    ]
+    let temp mycelial_diffusion_const * food / (sum_inverses + (1 / food))
+    set temp_food temp_food - temp * sum_inverses
+    ask stream-neighbors [
+      ifelse food > 0 [
+      set temp_food temp_food + ((1 / food) * temp)
+      ][set temp_food temp_food + (2 * temp)]
+    ]
+  ]
+  ask mycelae [
+    set food food + temp_food
+    set temp_food 0
+  ]
+
+end
+
+to mycelial_color
+  ask mycelae [
+    set color scale-color red food (min [food] of mycelae) (max [food] of mycelae)
+  ]
+
+
+end
+
+
+
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
@@ -421,8 +482,23 @@ growth_rate
 growth_rate
 0
 1
-0.06
+0.58
 0.01
+1
+NIL
+HORIZONTAL
+
+SLIDER
+12
+520
+193
+553
+mycelial_diffusion_const
+mycelial_diffusion_const
+0
+1
+0.5
+0.1
 1
 NIL
 HORIZONTAL
@@ -447,7 +523,14 @@ Sometimes algae will bump into each other. If this happens, they will move away 
 
 ### MYCELAE
 
-Mycelae spread around the space in lines, which are tied to each other and which send nutrients along their path. 
+Mycelae spread around the space in lines, which are tied to each other and which send nutrients along their path. Mycelae can grow in three ways: apical, intercalary, or branching. Apical is where the tip-most cell of the hyphae will produce a daughter cell. Intercalary is when non-apical growth occurs to elongate an existing hyphal midsection. Branching is pretty self-explanatory, and can occur either apically or within the rest of the hyphae.
+
+Mycelae will associate with algae they physically interact with, and they will attach to them and drag them along should intercalary growth occur. 
+
+Associating with algae provides the mycelae with nutrients. Nutrients disperse through the mycelae over time. More nutrients trigger greater growth probability for a particular.
+
+Nutrient dispersal:
+Ask each mycelae, then ask each particle to pick to stay, go R, or go L. 
 
 
 ## HOW TO USE IT
