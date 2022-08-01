@@ -1,4 +1,4 @@
-extensions [ rnd ]
+extensions [ rnd array]
 
 breed [algae alga]
 algae-own [health]
@@ -50,7 +50,6 @@ to go
   check_collisions
   fix_collisions
 
-  ;;mycelial growth
   ;;mycelae get nutrients from algae
   nutrients
 
@@ -58,6 +57,7 @@ to go
   mycelial_diffusion
 
   ;;mycelae grow if they have enough food -- each one has a certain branching probability
+  spread
 
   ;;change mycelial colors to show food flow
   mycelial_color
@@ -323,29 +323,33 @@ end
 
 to spread
   let mycs (list mycelae)
-  let m sum [food] of mycelae
   let vals map [turt -> [self] of turt] mycs
   let temp map [turt -> [food] of turt] mycs
+
+
+  let m sum [food] of mycelae
   set temp first temp ;;don't know why I have to do this, but it stores as a list of a single list of the thing we want
   set vals first vals
   let probs map [f -> f / m] temp
-  let id first rnd:weighted-one-of-list (map list vals probs) last
+  let t first rnd:weighted-one-of-list (map list vals probs) last
+  let id [who] of t
 
-  ifelse random 100 <= branching [
-    branch id
-  ][
-    mycelae_grow id
+  ;;if the agent is non apical
+  ifelse count [my-out-streams] of turtle id > 0 [
+    ;;if we randomly decide to branch
+    ifelse random 10 <= branching / [food] of turtle id [
+      let trash grow_fungi id
+    ][
+      intercalary_grow id
+    ]
   ]
-
-end
-
-to mycelae_grow [id]
-
-
+  ;;if apical, we will grow (doesn't matter if branching or not because can't branch an apical)
+  [let trash grow_fungi id]
 end
 
 
-
+;
+;
 ; carefully [
 ;    let which random-float (branching + intercalary + apical)
 ;    if which < branching [ ;;then we will do branching
@@ -359,20 +363,17 @@ end
 ;      let trash grow_fungi [who] of one-of mycelae with [count my-out-links = 0]
 ;    ]
 ;  ] []
+;set nodeext2 map [ifelse-value (? > 9)  [? - 9][?]] nodeext2
 ;
 ;
 
 
 
+to test
 
 
 
-
-
-
-
-
-
+end
 
 
 
@@ -413,7 +414,7 @@ turn_radius
 turn_radius
 0
 180
-50.0
+60.0
 1
 1
 NIL
@@ -462,7 +463,7 @@ algae_sensitivity
 algae_sensitivity
 0
 100
-29.0
+71.0
 1
 1
 NIL
@@ -477,7 +478,7 @@ growth_rate
 growth_rate
 0
 1
-0.08
+0.05
 0.01
 1
 NIL
@@ -492,7 +493,7 @@ mycelial_diffusion_const
 mycelial_diffusion_const
 0
 1
-0.5
+0.1
 0.1
 1
 NIL
@@ -506,9 +507,24 @@ SLIDER
 branching
 branching
 0
-10
-1.0
+50
+20.4
 0.1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+25
+144
+197
+177
+apical_advantage
+apical_advantage
+0
+100
+50.0
+1
 1
 NIL
 HORIZONTAL
