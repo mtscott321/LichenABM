@@ -58,25 +58,13 @@ to go
   mycelial_diffusion
 
   ;;mycelae grow if they have enough food -- each one has a certain branching probability
-
+  spread
   ;;change mycelial colors to show food flow
   mycelial_color
   ;;associate mycelae with algae
   associate
 
-   carefully [
-    let which random-float (branching + intercalary + apical)
-    if which < branching [ ;;then we will do branching
-      ;; get an agent with preexisting downstreams
-      let trash grow_fungi [who] of one-of mycelae with [count my-out-links > 0]
-    ]
-    ifelse which >= branching and which < intercalary + branching [ ;;then we will do intercalary
-      intercalary_grow [who] of one-of mycelae with [count my-out-links > 0]
-    ]
-    [ ;;then we will do apical
-      let trash grow_fungi [who] of one-of mycelae with [count my-out-links = 0]
-    ]
-  ] []
+
 
   tick
 
@@ -146,7 +134,6 @@ to fix_collisions
 
   ;;while there are still links
   while [count overlaps > 0] [
-    output-print "in fix collisions"
     ;;get the turtles involved in the strongest link (most overlap)
     let m max [strength] of overlaps
     let conns (list)
@@ -339,15 +326,57 @@ to spread
   let m sum [food] of mycelae
   let vals map [turt -> [self] of turt] mycs
   let temp map [turt -> [food] of turt] mycs
-  set temp first temp
+  set temp first temp ;;don't know why I have to do this, but it stores as a list of a single list of the thing we want
+  set vals first vals
   let probs map [f -> f / m] temp
+  let id first rnd:weighted-one-of-list (map list vals probs) last
 
-  output-show probs
-  output-show sum probs
+  ifelse random 100 <= branching [
+    branch id
+  ][
+    mycelae_grow id
+  ]
 
+end
+
+to mycelae_grow [id]
 
 
 end
+
+to branch [id]
+
+
+end
+
+
+; carefully [
+;    let which random-float (branching + intercalary + apical)
+;    if which < branching [ ;;then we will do branching
+;      ;; get an agent with preexisting downstreams
+;      let trash grow_fungi [who] of one-of mycelae with [count my-out-links > 0]
+;    ]
+;    ifelse which >= branching and which < intercalary + branching [ ;;then we will do intercalary
+;      intercalary_grow [who] of one-of mycelae with [count my-out-links > 0]
+;    ]
+;    [ ;;then we will do apical
+;      let trash grow_fungi [who] of one-of mycelae with [count my-out-links = 0]
+;    ]
+;  ] []
+;
+;
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -390,51 +419,6 @@ turn_radius
 180
 50.0
 1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-22
-131
-194
-164
-branching
-branching
-0
-10
-4.0
-0.1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-23
-188
-195
-221
-apical
-apical
-0
-100
-89.0
-1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-25
-263
-197
-296
-intercalary
-intercalary
-0
-10
-10.0
-0.1
 1
 NIL
 HORIZONTAL
@@ -513,6 +497,21 @@ mycelial_diffusion_const
 0
 1
 0.5
+0.1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+21
+84
+193
+117
+branching
+branching
+0
+10
+1.0
 0.1
 1
 NIL
