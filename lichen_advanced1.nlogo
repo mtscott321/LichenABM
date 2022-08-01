@@ -1,3 +1,5 @@
+extensions [ rnd ]
+
 breed [algae alga]
 algae-own [health]
 breed [mycelae mycelia]
@@ -330,6 +332,19 @@ to mycelial_color
   ask mycelae [
     set color scale-color red food (min [food] of mycelae) (max [food] of mycelae)
   ]
+end
+
+to spread
+  let mycs (list mycelae)
+  let m sum [food] of mycelae
+  let vals map [turt -> [self] of turt] mycs
+  let temp map [turt -> [food] of turt] mycs
+  set temp first temp
+  let probs map [f -> f / m] temp
+
+  output-show probs
+  output-show sum probs
+
 
 
 end
@@ -482,7 +497,7 @@ growth_rate
 growth_rate
 0
 1
-0.58
+0.08
 0.01
 1
 NIL

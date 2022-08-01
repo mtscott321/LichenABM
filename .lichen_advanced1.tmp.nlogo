@@ -1,3 +1,5 @@
+extensions [ rnd ]
+
 breed [algae alga]
 algae-own [health]
 breed [mycelae mycelia]
@@ -58,7 +60,7 @@ to go
   ;;mycelae grow if they have enough food -- each one has a certain branching probability
 
   ;;change mycelial colors to show food flow
-  ;mycelial_color
+  mycelial_color
   ;;associate mycelae with algae
   associate
 
@@ -66,13 +68,13 @@ to go
     let which random-float (branching + intercalary + apical)
     if which < branching [ ;;then we will do branching
       ;; get an agent with preexisting downstreams
-      let trash mycelia_grow [who] of one-of mycelae with [count my-out-links > 0]
+      let trash grow_fungi [who] of one-of mycelae with [count my-out-links > 0]
     ]
     ifelse which >= branching and which < intercalary + branching [ ;;then we will do intercalary
       intercalary_grow [who] of one-of mycelae with [count my-out-links > 0]
     ]
     [ ;;then we will do apical
-      let trash grow [who] of one-of mycelae with [count my-out-links = 0]
+      let trash grow_fungi [who] of one-of mycelae with [count my-out-links = 0]
     ]
   ] []
 
@@ -330,6 +332,18 @@ to mycelial_color
   ask mycelae [
     set color scale-color red food (min [food] of mycelae) (max [food] of mycelae)
   ]
+end
+
+to spread
+  let mycs (list mycelae)
+  let m max [food] of mycelae
+  let vals map [turt -> [self] of turt] mycs
+  let temp map [turt -> [food] of turt] mycs
+  set temp first temp
+  let probs map [f -> f / m] temp
+
+  output-show prob
+
 
 
 end
@@ -482,7 +496,7 @@ growth_rate
 growth_rate
 0
 1
-0.58
+0.08
 0.01
 1
 NIL
