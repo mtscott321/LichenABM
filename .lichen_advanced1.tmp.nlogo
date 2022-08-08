@@ -46,7 +46,7 @@ to go
     if health <= 0 [die]
     wiggle who
   ]
-  ask overlaps [die]
+  ask overlaps [die] ;;overlaps are existing links from previous round that we want to redetermine
   check_collisions
   fix_collisions
 
@@ -430,9 +430,9 @@ HORIZONTAL
 
 BUTTON
 20
-480
+345
 83
-513
+378
 NIL
 setup
 NIL
@@ -446,10 +446,10 @@ NIL
 1
 
 BUTTON
-110
-480
-173
-513
+130
+345
+193
+378
 NIL
 go
 T
@@ -486,7 +486,7 @@ growth_rate
 growth_rate
 0
 1
-0.13
+0.08
 0.01
 1
 NIL
@@ -516,7 +516,7 @@ branching
 branching
 0
 50
-20.4
+9.2
 0.1
 1
 NIL
@@ -542,19 +542,55 @@ Algae Parameters
 0.0
 1
 
+PLOT
+5
+395
+205
+545
+Algae Population
+Tick
+n
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -11085214 true "" "plot count algae"
+
+PLOT
+5
+550
+205
+700
+Percent In Symbiosis
+Tick
+%
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -11085214 true "" "plot (100 * count symbios / (count algae + 1) )"
+"pen-1" 1.0 0 -2674135 true "" "plot (100 * count symbios / (count mycelae + 1) )"
+
 @#$#@#$#@
 ## WHAT IS IT?
 
-This is a simluation of the basic symbiotic interactions that occur in lichen: the interaction between a fungi (mycobiont) and an algae/cyanobacteria (photobiont). The specific goal of this particular model is to show early development of the symbiotic interaction. 
+This is a simluation of the basic symbiotic interactions that occur in lichen: the interaction between a fungi (mycobiont) and an algae/cyanobacteria (photobiont). The specific goal of this particular model is to show early development of the symbiotic interaction. In the interface, algae are round green cells, and mycelae are thin red lines.
 
 Parameters **bolded** are ones which are able to be changed in the Interface tab. Some global paramters must be changed in the code tab, to avoid crowding and confusion -- and because all of the non-bolded parameters are unlikely to be seen in nature/don't affect much. 
 
-## HOW IT WORKS
+## AGENTS
 
 There are two agent types: the algae and the fungal mycelae (photo and mycobiont, respectively). These were chosen because they are the two primary symbionts in nearly all lichen, and it is thought that their interaction determines the physical shape of lichen.
 
- 
-The agent selection and subsequent interactions are justified by translating as well as possible the interactions explained in Armaleo 1991 ("Experimental Microbiology of Lichens: Mycelia Fragmentation, A Novel Growth Chamber, and the Origins of Thallus Differentiation", Symbiosis 11 163-177). Unless otherwise stated, all interactions and actions by the agents are derived from this paper.
+The agent selection and subsequent interactions are justified by translating as well as possible the interactions explained in Armaleo 1991 ("Experimental Microbiology of Lichens: Mycelia Fragmentation, A Novel Growth Chamber, and the Origins of Thallus Differentiation", Symbiosis 11 163-177). Unless otherwise stated, all interactions and actions by the agents are derived from this paper. This section covers the properities, actions, and interactions of the agent types. All model inputs are discussed in this section, as all inputs are related to affecting agent operation (no environmental variables).
 
 ### ALGAE
 In lichen, the main role of the photobiont (algal or cyanobacterial) is to provide the complex with energy-rich carbohydrates via photosynthesizing. Essentially, the algae make the food for the system. 
@@ -574,38 +610,62 @@ Each "mycelae" agent is actually one segment of a whole mycelial strand. That is
 
 Mycelae grow by adding downstream cells in a random direction from where they are. The radius in which they can add a downstream cell is determined by the **TURN_RADIUS** parameter. Mycelae grow in three ways: apical, intercalary, or branching. Apical growth occurs when a mycelae agent with no downstream cells grows (basically, the tip of the mycelae extends). Intercalary growth occurs when a cell with an existing downstream grows in a line, maintaining the same number of downstream cells. (basically, the middle of a strand extending.) Intercalary growth results in all downstream cells shifting to the new downstream, which is why sometimes it seems like the strands "jump" a little. Ideally, the model would simply push the downstream strands out of the way in a more physically accurate way, but writing that physics was outside the scope of what I could reasonably do here. the third kind of growth, branching, is when a non-apical agent adds another downstream cell. The proportion of branching to non-branching growth is determined by the **BRANCHING** parameter. The proportion of apical to intercalary growth is determined by the FOOD the mycelae has.
 
-Mycelae have a parameter, FOOD, which determines how likely they are to grow.Mycelae gain food from algae they are in physical contact with. Whenever a mycelae and an algae end up in the same space, they attach and form a relationship where the algae sends food to the mycelae. Subsequently, that algal cell will get dragged along if that mycelael cell moves at all.
+Mycelae have a parameter, FOOD, which determines how likely they are to grow. The amount of food can be visually seen in the interface tab; more food means whiter cells, and less food means darker. Mycelae gain food from algae they are in physical contact with. Whenever a mycelae and an algae end up in the same space, they attach and form a relationship where the algae sends food to the mycelae. Subsequently, that algal cell will get dragged along if that mycelael cell moves at all.
 
 Over time, nutrients disperse along mycelial strands. The rate at which this occurs is determined by the **MYCELIAL_DIFFUSION_CONST** parameter. 
 
 
-## HOW TO USE IT
+## ORDER OF EVENTS
 
-(how to use the model, including a description of each of the items in the Interface tab)
+This section describes what happens each tick. This is essentially a pseudocode version of the GO function in the code tab.
 
-## THINGS TO NOTICE
+1) Randomly grow the algae, proportional to their health.
+2) Ask algae to wiggle one delta-step in a random direction
+3) Check to see if any algae have collided with each other
+4) Resolve any collisions by having the relevant parties move in opposite directions *
+5) Ask mycelae to get nutrients from their associated algae
+6) Ask mycelae to send nutrients to their downstreams, proportional to the diffusion constant and the nutrient gradient between neighbors.
+7) Randomly pick a mycelae to grow, then randomly decide if it will branch or extend (if nonapical).
+8) Update colors of mycelae in accordance with new food
+9) Make links between any algae and mycelae that are touching.
 
-(suggested things for the user to notice while running the model)
 
-## THINGS TO TRY
+*This may cause subsequent collisions, but those will be resolved next tick.
 
-(suggested things for the user to try to do (move sliders, switches, etc.) with the model)
+## ENVIRONMENT
+
+The environment of this model is pretty much nonexistant. There is the assumption of no tethering point for the lichen, no sun location, and even nutrients and exposure risk. This is obviously inaccurate, but due to the small scale of the beginnings of lichen growth, a relatively homogenous environment is reasonable. Thus, it makes sense to ignore environmental parameters entirely because they would not change across the model. However, this is surely an area for future extension of the model. 
+
+## OUTPUTS
+
+The primary output of the model is the physical image of the interaction. However, there are two quantitative outputs: the number of algae, and the percentage of agents in symbiosis (of each type). I think the latter is more useful of the two.
 
 ## EXTENDING THE MODEL
 
-(suggested things to add or change in the Code tab to make the model more complicated, detailed, accurate, etc.)
+There are many ways to extend the model. The most important one I would like to explore is fleshing out the relationship between apical and intercalary growth. I would like to add a parameter to adjust that relationship to favor one or the other. 
 
-## NETLOGO FEATURES
+Another extension needed to meet the model of Armaleo 1991 is increasing the branching probability proportional to the food of the mycelae; less food means more branching. (Bartova et al. 1968; 1975). 
 
-(interesting or unusual features of NetLogo that the model uses, particularly in the Code tab; or where workarounds were needed for missing features)
+A possible extension would be introducing a way to thicken cell walls of mycelae, similar to cortex formation in the lichen thallus. This would not necessarily have any significant impact on anything other than the visuals of the model, however. 
+
+Developping different starting positions for the algae and mycelae to mimic real reproducitve origins would be a huge improvement as well. Right now, there's a very basic initiation, but mimicking real lichen soredium (reproductive spores) would be beneficial.
 
 ## RELATED MODELS
 
-(models in the NetLogo Models Library and elsewhere which are of related interest)
+The collisions for this model are based on the GasLab Circular Particles model in the Model Library. 
 
-## CREDITS AND REFERENCES
+## CREDITS
 
-(a reference to the model's URL on the web if it has one, as well as any other necessary credits, citations, and links)
+Thanks to the Santa Fe Institute and Complexity Explorer for this class on Agent Based Modeling.
+
+###R
+
+Armaleo, D. A. 1991. "Experimental Microbiology of Lichens: Mycelia Fragmentation, A Novel Growth Chamber, and the Origins of Thallus Differentiation." Symbiosis, 11: 162-177.
+
+Baratova, H., et al. 1968. "Morphological changes induced in fungi by antiobiotics." Folia Microbiol. 14:475-483. 
+
+Baratova, H., et al. 1975. "Morphological effects of Ramihyphin A in filamentous fungi." Folia Microbiol. 20:97-102.
+
 @#$#@#$#@
 default
 true
