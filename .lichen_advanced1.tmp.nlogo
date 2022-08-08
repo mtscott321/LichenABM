@@ -321,6 +321,15 @@ to mycelial_color
   ]
 end
 
+
+
+;;TODO
+
+;;apical still needs an advantage over intercalary, even with the signalling
+;;if low food, increase branching probability
+;;be able to increase/decrease mycelial growth rate (number of things we select each tick) using slider
+;;clean all this up lmao
+
 to spread
   let mycs (list mycelae)
   let vals map [turt -> [self] of turt] mycs
@@ -337,7 +346,7 @@ to spread
   ;;if the agent is non apical
   ifelse count [my-out-streams] of turtle id > 0 [
     ;;if we randomly decide to branch
-    ifelse random 10 <= branching / [food] of turtle id [
+    ifelse random 100 <= branching  [
       let trash grow_fungi id
     ][
       intercalary_grow id
@@ -376,7 +385,6 @@ to test
 end
 
 
-
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
@@ -406,10 +414,10 @@ ticks
 30.0
 
 SLIDER
-17
-25
-189
-58
+20
+105
+192
+138
 turn_radius
 turn_radius
 0
@@ -421,10 +429,10 @@ NIL
 HORIZONTAL
 
 BUTTON
-21
-356
-84
-389
+20
+480
+83
+513
 NIL
 setup
 NIL
@@ -438,10 +446,10 @@ NIL
 1
 
 BUTTON
-120
-360
-183
-393
+110
+480
+173
+513
 NIL
 go
 T
@@ -455,10 +463,10 @@ NIL
 1
 
 SLIDER
-28
-318
-200
-351
+20
+250
+192
+283
 algae_sensitivity
 algae_sensitivity
 0
@@ -470,40 +478,40 @@ NIL
 HORIZONTAL
 
 SLIDER
-28
-448
-200
-481
+20
+290
+192
+323
 growth_rate
 growth_rate
 0
 1
-0.05
+0.13
 0.01
 1
 NIL
 HORIZONTAL
 
 SLIDER
-12
-520
-193
-553
+20
+145
+195
+178
 mycelial_diffusion_const
 mycelial_diffusion_const
 0
 1
-0.1
+0.2
 0.1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-21
-84
-193
-117
+20
+65
+192
+98
 branching
 branching
 0
@@ -514,49 +522,61 @@ branching
 NIL
 HORIZONTAL
 
-SLIDER
+TEXTBOX
 25
-144
-197
-177
-apical_advantage
-apical_advantage
-0
-100
-50.0
+20
+175
+51
+Fungi (mycelae) Parameters
+14
+0.0
 1
+
+TEXTBOX
+25
+225
+175
+251
+Algae Parameters
+14
+0.0
 1
-NIL
-HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
 
-This is a simluation of the basic symbiotic interactions that occur in lichen: the interaction between a fungi (mycobiont) and an algae/cyanobacteria (photobiont).
+This is a simluation of the basic symbiotic interactions that occur in lichen: the interaction between a fungi (mycobiont) and an algae/cyanobacteria (photobiont). The specific goal of this particular model is to show early development of the symbiotic interaction. 
+
+Parameters **bolded** are ones which are able to be changed in the Interface tab. Some global paramters must be changed in the code tab, to avoid crowding and confusion -- and because all of the non-bolded parameters are unlikely to be seen in nature/don't affect much. 
 
 ## HOW IT WORKS
 
-There are two agent types: the algae and the mycelae (photo and mycobiont, respectively). 
+There are two agent types: the algae and the fungal mycelae (photo and mycobiont, respectively). These were chosen because they are the two primary symbionts in nearly all lichen, and it is thought that their interaction determines the physical shape of lichen.
+
+ 
+The agent selection and subsequent interactions are justified by translating as well as possible the interactions explained in Armaleo 1991 ("Experimental Microbiology of Lichens: Mycelia Fragmentation, A Novel Growth Chamber, and the Origins of Thallus Differentiation", Symbiosis 11 163-177). Unless otherwise stated, all interactions and actions by the agents are derived from this paper.
 
 ### ALGAE
-The algae have a parameter, HEALTH, which determines their growth rate and photosynthetic output. In the base model, the only thing that affects their health is the crowding around them; if the algal density in a place is too high, the population will suffer and die off. 
+In lichen, the main role of the photobiont (algal or cyanobacterial) is to provide the complex with energy-rich carbohydrates via photosynthesizing. Essentially, the algae make the food for the system. 
 
-Healthy algae are able to produce more energy, which is then siphoned off to mycelae attached to them. Over time, algae will grow in size proportional to their health and the GROWTH_RATE paramter. Once the PARENTHOOD_SIZE has been reached, the algae will split into daughter cells, mimicking an aplanospore -- if it is associated with a mycelae. The rationale behind this is that the aplanospore membrane requires agitation to break, and the mycelae infiltrate the membrane in real lichen. 
+The algae have a parameter, HEALTH, which determines their growth rate and photosynthetic output. The only thing that affects their health is the crowding around them; if the algal density in a place is too high, the population will suffer and die off. Their sensitivity to crowding/collisions is determined by the adjustable parameter **ALGAE_SENSITIVITY**.
+
+Healthy algae are able to produce more energy, which is then siphoned off to mycelae attached to them. (see following section for more details). Over time, algae will grow in size proportional to their health and the **GROWTH_RATE** paramter. Once the PARENTHOOD_SIZE has been reached, the algae is able to split into daughter cells, mimicking an aplanospore reproductive strategy. They won't split, however, unless disturbed. That is, unless they are connected to a mycelia. The rationale behind this is that the aplanospore membrane requires agitation to break, and the mycelae infiltrate the aplanospore membrane in real lichen. 
 
 The algae will also wiggle around randomly in step sizes determined by the DELTA parameter, unless they are attached to mycelae. 
 
-Sometimes algae will bump into each other. If this happens, they will move away from each other. If this causes new collisions, they will be resolved at the next tick. These collisions are also what determines the overcrowding that effects health; the more collisions, the less healthy the algae. Their sensitivity to voercrowding is determined by the ALGAE_SENSITIVITY parameter.
+Sometimes algae will bump into each other. If this happens, they will move away from each other. If this causes new collisions, they will be resolved at the next tick. These collisions are also what determines the overcrowding that effects health; the more collisions, the less healthy the algae. Again, the sensitivity to collisions is determined by the **ALGAE_SENSITIVITY** parameter.
 
 ### MYCELAE
+The role of the fungi in lichen is a bit more complicated than that of the photobiont. For this simulation, I restrict the model to only the fungal mycelae, leaving out any fruiting bodies or differentiation among cell types. The justification for this is both scope and that mycelae are the primary cell type in lichen, and particularly in early lichen development. The role of mycelae is to protect the algae, facilitate algal reproduction, and grow to expand the system. Essentially, the mycelae are the backbone of the lichen.
 
-Mycelae spread around the space in lines, which are tied to each other and which send nutrients along their path. Mycelae can grow in three ways: apical, intercalary, or branching. Apical is where the tip-most cell of the hyphae will produce a daughter cell. Intercalary is when non-apical growth occurs to elongate an existing hyphal midsection. Branching is pretty self-explanatory, and can occur either apically or within the rest of the hyphae.
+Each "mycelae" agent is actually one segment of a whole mycelial strand. That is, a single mycelial cell. Mycelae are tied to their predecessor cell (upstream cell) and any subsequent downstream cells (there can be multiple if the strand branches). 
 
-Mycelae will associate with algae they physically interact with, and they will attach to them and drag them along should intercalary growth occur. 
+Mycelae grow by adding downstream cells in a random direction from where they are. The radius in which they can add a downstream cell is determined by the **TURN_RADIUS** parameter. Mycelae grow in three ways: apical, intercalary, or branching. Apical growth occurs when a mycelae agent with no downstream cells grows (basically, the tip of the mycelae extends). Intercalary growth occurs when a cell with an existing downstream grows in a line, maintaining the same number of downstream cells. (basically, the middle of a strand extending.) Intercalary growth results in all downstream cells shifting to the new downstream, which is why sometimes it seems like the strands "jump" a little. Ideally, the model would simply push the downstream strands out of the way in a more physically accurate way, but writing that physics was outside the scope of what I could reasonably do here. the third kind of growth, branching, is when a non-apical agent adds another downstream cell. The proportion of branching to non-branching growth is determined by the **BRANCHING** parameter. The proportion of apical to intercalary growth is determined by the FOOD the mycelae has.
 
-Associating with algae provides the mycelae with nutrients. Nutrients disperse through the mycelae over time. More nutrients trigger greater growth probability for a particular.
+Mycelae have a parameter, FOOD, which determines how likely they are to grow.Mycelae gain food from algae they are in physical contact with. Whenever a mycelae and an algae end up in the same space, they attach and form a relationship where the algae sends food to the mycelae. Subsequently, that algal cell will get dragged along if that mycelael cell moves at all.
 
-Nutrient dispersal:
-Ask each mycelae, then ask each particle to pick to stay, go R, or go L. 
+Over time, nutrients disperse along mycelial strands. The rate at which this occurs is determined by the **MYCELIAL_DIFFUSION_CONST** parameter. 
 
 
 ## HOW TO USE IT
@@ -909,5 +929,5 @@ true
 Line -7500403 true 150 150 90 180
 Line -7500403 true 150 150 210 180
 @#$#@#$#@
-0
+1
 @#$#@#$#@
