@@ -61,10 +61,9 @@ to go
 
   ;;change mycelial colors to show food flow
   mycelial_color
+
   ;;associate mycelae with algae
   associate
-
-
 
   tick
 
@@ -284,6 +283,8 @@ to nutrients
     ask algae in-radius parenthood_size with [distance myself < (size * 1.5) ] [
       set temp temp + 10 * (((size * 1.5) - distance myself) / parenthood_size) ;;assuming linear concentration gradient
     ]
+    set temp temp - 1 ;;cost for living in each tick
+
     set food temp
   ]
 
@@ -325,66 +326,102 @@ end
 
 ;;TODO
 
-;;apical still needs an advantage over intercalary, even with the signalling
-;;if low food, increase branching probability
-;;be able to increase/decrease mycelial growth rate (number of things we select each tick) using slider
-;;clean all this up lmao
+;;need to make it nonlinearly more likely to branch if lower food.
+;;there are just so many ways to code this section
 
 to spread
-  let mycs (list mycelae)
-  let vals map [turt -> [self] of turt] mycs
-  let temp map [turt -> [food] of turt] mycs
+  let r_val max [food] of mycelae
+  let mycs [who] of mycelae with [food > mycelial_growth_threshold] ;;needs to meet the basic requirements for having enough food for mitosis
+  if length mycs > 0 [ ;;if there are any that can reproduce
+    ;;will be iterating through the list of viable mycelia
+   let index 0
+   while [index < length mycs] [
+      let id item index mycs
 
+      ;;if apical
+      ifelse count [my-out-streams] of turtle id = 0 [
+        ;;if we randomly decide to grow
+        if random r_val < [food] of turtle id + apical_advantage [
+          let trash grow_fungi id
+        ]
+      ]
+      ;;if nonapical
+      [
+        ;;if we decide to grow
+        if random r_val < ([food] of turtle id) [
+          ;;if we decide to branch
 
-  let m sum [food] of mycelae
-  set temp first temp ;;don't know why I have to do this, but it stores as a list of a single list of the thing we want
-  set vals first vals
-  let probs map [f -> f / m] temp
-  let t first rnd:weighted-one-of-list (map list vals probs) last
-  let id [who] of t
-
-  ;;if the agent is non apical
-  ifelse count [my-out-streams] of turtle id > 0 [
-    ;;if we randomly decide to branch
-    ifelse random 100 <= branching  [
-      let trash grow_fungi id
-    ][
-      intercalary_grow id
+          ifelse random r_val > ([food] of turtle id / branching) [
+            let trash grow_fungi id
+          ]
+          ;;otherwise, intercalary
+          [
+            intercalary_grow id
+          ]
+        ]
+      ]
+      set index index + 1
     ]
   ]
-  ;;if apical, we will grow (doesn't matter if branching or not because can't branch an apical)
-  [let trash grow_fungi id]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+;  if count mycelae with [food > mycelial_growth_threshold] > 0 [
+;    let vals map [turt -> [self] of turt] mycs
+;    let temp map [turt -> [food] of turt] mycs
+;
+;
+;    let m sum [food] of mycelae
+;    set temp first temp ;;don't know why I have to do this, but it stores as a list of a single list of the thing we want
+;    set vals first vals
+;    let probs map [f -> f / m] temp
+;    let t first rnd:weighted-one-of-list (map list vals probs) last
+;    let id [who] of t
+;
+;    ;;if the agent is non apical
+;    ifelse count [my-out-streams] of turtle id > 0 [
+;      ;;if we randomly decide to branch
+;      ifelse random 100 <= branching  [
+;        let trash grow_fungi id
+;      ][
+;        intercalary_grow id
+;      ]
+;    ]
+;    ;;if apical, we will grow (doesn't matter if branching or not because can't branch an apical)
+;    [let trash grow_fungi id]
+;  ]
 end
-
-
-;
-;
-; carefully [
-;    let which random-float (branching + intercalary + apical)
-;    if which < branching [ ;;then we will do branching
-;      ;; get an agent with preexisting downstreams
-;      let trash grow_fungi [who] of one-of mycelae with [count my-out-links > 0]
-;    ]
-;    ifelse which >= branching and which < intercalary + branching [ ;;then we will do intercalary
-;      intercalary_grow [who] of one-of mycelae with [count my-out-links > 0]
-;    ]
-;    [ ;;then we will do apical
-;      let trash grow_fungi [who] of one-of mycelae with [count my-out-links = 0]
-;    ]
-;  ] []
-;set nodeext2 map [ifelse-value (? > 9)  [? - 9][?]] nodeext2
-;
-;
-
-
 
 to test
-
-
+  let mycs (list mycelae with [food > 10])
+  output-show length mycs
+  output-show mycs
 
 end
-
-
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
@@ -422,7 +459,7 @@ turn_radius
 turn_radius
 0
 180
-60.0
+88.0
 1
 1
 NIL
@@ -430,9 +467,9 @@ HORIZONTAL
 
 BUTTON
 20
-345
+415
 83
-378
+448
 NIL
 setup
 NIL
@@ -447,9 +484,9 @@ NIL
 
 BUTTON
 130
-345
+415
 193
-378
+448
 NIL
 go
 T
@@ -464,14 +501,14 @@ NIL
 
 SLIDER
 20
-250
+320
 192
-283
+353
 algae_sensitivity
 algae_sensitivity
 0
 100
-71.0
+30.0
 1
 1
 NIL
@@ -479,9 +516,9 @@ HORIZONTAL
 
 SLIDER
 20
-290
+360
 192
-323
+393
 growth_rate
 growth_rate
 0
@@ -515,9 +552,9 @@ SLIDER
 branching
 branching
 0
-50
-9.2
-0.1
+3
+0.71
+0.01
 1
 NIL
 HORIZONTAL
@@ -534,31 +571,13 @@ Fungi (mycelae) Parameters
 
 TEXTBOX
 25
-225
+295
 175
-251
+321
 Algae Parameters
 14
 0.0
 1
-
-PLOT
-5
-395
-205
-545
-Algae Population
-Tick
-n
-0.0
-10.0
-0.0
-10.0
-true
-false
-"" ""
-PENS
-"default" 1.0 0 -11085214 true "" "plot count algae"
 
 PLOT
 5
@@ -578,6 +597,54 @@ false
 PENS
 "default" 1.0 0 -11085214 true "" "plot (100 * count symbios / (count algae + 1) )"
 "pen-1" 1.0 0 -2674135 true "" "plot (100 * count symbios / (count mycelae + 1) )"
+
+SLIDER
+20
+185
+195
+218
+mycelial_growth_threshold
+mycelial_growth_threshold
+0
+100
+94.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+20
+225
+192
+258
+apical_advantage
+apical_advantage
+0
+100
+50.0
+1
+1
+NIL
+HORIZONTAL
+
+PLOT
+25
+460
+225
+610
+food
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -16777216 true "" "plot (sum [food] of mycelae) / (count mycelae)"
 
 @#$#@#$#@
 ## WHAT IS IT?
@@ -658,14 +725,13 @@ The collisions for this model are based on the GasLab Circular Particles model i
 
 Thanks to the Santa Fe Institute and Complexity Explorer for this class on Agent Based Modeling.
 
-###R
+### REFERENCES
 
 Armaleo, D. A. 1991. "Experimental Microbiology of Lichens: Mycelia Fragmentation, A Novel Growth Chamber, and the Origins of Thallus Differentiation." Symbiosis, 11: 162-177.
 
 Baratova, H., et al. 1968. "Morphological changes induced in fungi by antiobiotics." Folia Microbiol. 14:475-483. 
 
 Baratova, H., et al. 1975. "Morphological effects of Ramihyphin A in filamentous fungi." Folia Microbiol. 20:97-102.
-
 @#$#@#$#@
 default
 true
