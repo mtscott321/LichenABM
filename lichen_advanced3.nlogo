@@ -13,7 +13,8 @@ overlaps-own [strength]
 globals [mycelae_size
   algae_starting_size
   parenthood_size
-  delta]
+  delta
+  mycelial_nutrient_consumption]
 
 to setup
   ca
@@ -24,6 +25,7 @@ to setup
   set parenthood_size 10
   set delta 1 ;;how much to stochastically wiggle
   set mycelae_size 5
+  set mycelial_nutrient_consumption 5
 
   ;;creating the starting agents. This will eventually depend on the way we want to start (random, isidia, soredia, etc)
   create-mycelae 10 [set shape "line" set color red set size mycelae_size set food 1]
@@ -172,6 +174,7 @@ to fix_collisions
 
 end
 
+;;need to update to include Goodenough's apical vs intercalary branching angles
 ;;now the fungi-only ones
 to-report grow_fungi [id]
   ;;get the parent half-size and heading
@@ -283,7 +286,7 @@ to nutrients
     ask algae in-radius parenthood_size with [distance myself < (size * 1.5) ] [
       set temp temp + 10 * (((size * 1.5) - distance myself) / parenthood_size) ;;assuming linear concentration gradient
     ]
-    set temp temp - 1 ;;cost for living in each tick
+    set temp temp - mycelial_nutrient_consumption ;;cost for living in each tick
 
     set food temp
   ]
@@ -350,7 +353,7 @@ to spread
         ;;if we decide to grow
         if random r_val < ([food] of turtle id) [
           ;;if we decide to branch
-
+          ;;read the papers to see how this is related to food!!
           ifelse random r_val > ([food] of turtle id / branching) [
             let trash grow_fungi id
           ]
@@ -459,7 +462,7 @@ turn_radius
 turn_radius
 0
 180
-88.0
+117.0
 1
 1
 NIL
@@ -538,8 +541,8 @@ mycelial_diffusion_const
 mycelial_diffusion_const
 0
 1
-0.2
 0.1
+0.01
 1
 NIL
 HORIZONTAL
@@ -553,7 +556,7 @@ branching
 branching
 0
 3
-0.71
+1.09
 0.01
 1
 NIL
@@ -627,24 +630,6 @@ apical_advantage
 1
 NIL
 HORIZONTAL
-
-PLOT
-25
-460
-225
-610
-food
-NIL
-NIL
-0.0
-10.0
-0.0
-10.0
-true
-false
-"" ""
-PENS
-"default" 1.0 0 -16777216 true "" "plot (sum [food] of mycelae) / (count mycelae)"
 
 @#$#@#$#@
 ## WHAT IS IT?
