@@ -10,14 +10,11 @@ directed-link-breed [symbios symbio] ;;mycelae to aplanospore link
 undirected-link-breed [overlaps overlap]
 overlaps-own [strength]
 
-patches-own [val]
-
 globals [mycelae_size
   algae_starting_size
   parenthood_size
   delta
-  mycelial_nutrient_consumption
-]
+  mycelial_nutrient_consumption]
 
 to setup
   ca
@@ -30,59 +27,13 @@ to setup
   set mycelae_size 5
   set mycelial_nutrient_consumption 5
 
-  soredia ;;make a soredia
+  ;;creating the starting agents. This will eventually depend on the way we want to start (random, isidia, soredia, etc)
+  create-mycelae 10 [set shape "line" set color red set size mycelae_size set food 1]
+
+  create-algae 1 [set shape "circle" set color green set size algae_starting_size set health 100 ]
+
 
 end
-
-to soredia
-  let k 0
-  let n 2 + random 5
-  while [k < n] [
-    let newx 1.5 * algae_starting_size * sin((360 / n) * k) + (4 * delta - random-float (8 * delta))
-    let newy 1.5 * algae_starting_size * cos((360 / n) * k) + (4 * delta - random-float (8 * delta))
-    let temp -1
-    create-algae 1 [set shape "circle"
-      set color green
-      set xcor newx
-      set ycor newy
-      set size algae_starting_size
-      set health 100
-      set temp who]
-    create-mycelae 1 [set shape "line"
-      set color red
-      set size mycelae_size
-      set food 1
-      set heading towards alga temp]
-    set k k + 1
-  ]
-
-  ask mycelae [
-    let len size / 2
-    set xcor len * sin(heading)
-    set ycor len * cos(heading)
-  ]
-
-  associate
-
-  let squid 0
-  while [count mycelae with [(count my-symbios + count my-out-streams) = 0] > 0 and squid < n] [
-    ask mycelae with [(count my-symbios + count my-out-streams) = 0] [
-      let x xcor
-      let y ycor
-      hatch 1 [
-        let len size / 2
-        set xcor x + len * sin(heading)
-        set ycor y + len * cos(heading)
-        set squid squid + 1
-      ]
-    ]
-    set squid squid + 1
-    associate
-  ]
-
-end
-
-
 
 
 
@@ -247,7 +198,6 @@ to-report grow_fungi [id]
     set xcor new_x
     set ycor new_y
     set color red
-    set food ([food] of turtle id) / 2
 
     ;;this is an external variable
     set who_child who
@@ -255,7 +205,7 @@ to-report grow_fungi [id]
   ]
 
   ;;make it a specific kind of link
-  ask turtle id [create-stream-to turtle (who_child) [tie hide-link] set food food / 2]
+  ask turtle id [create-stream-to turtle (who_child) [tie hide-link]]
 
   report who_child
 
@@ -333,15 +283,12 @@ to nutrients
   ask mycelae [
     ;;should alter to make this representative of actual chemical diffuson gradient
     let temp food
-    let id who
     ask algae in-radius parenthood_size with [distance myself < (size * 1.5) ] [
-      set temp temp + 10 * (((size * 1.5 ) - distance turtle id) / parenthood_size) ;;assuming linear concentration gradient
+      set temp temp + 10 * (((size * 1.5) - distance myself) / parenthood_size) ;;assuming linear concentration gradient
     ]
     set temp temp - mycelial_nutrient_consumption ;;cost for living in each tick
 
     set food temp
-    if food > 100 [ set food 100]
-    if food <= 0 [set food 1]
   ]
 
 end
@@ -386,29 +333,39 @@ end
 ;;there are just so many ways to code this section
 
 to spread
-  let mycs (list mycelae)
-  let vals map [turt -> [self] of turt] mycs
-  let temp map [turt -> [food] of turt] mycs
+  let r_val max [food] of mycelae
+  let mycs [who] of mycelae with [food > mycelial_growth_threshold] ;;needs to meet the basic requirements for having enough food for mitosis
+  if length mycs > 0 [ ;;if there are any that can reproduce
+    ;;will be iterating through the list of viable mycelia
+   let index 0
+   while [index < length mycs] [
+      let id item index mycs
 
-  ;;pick which mycelae is going to grow, more likely if has more food
-  let m sum [food] of mycelae
-  set temp first temp ;;don't know why I have to do this, but it stores as a list of a single list of the thing we want
-  set vals first vals
-  let probs map [f -> f / m] temp
-  let t first rnd:weighted-one-of-list (map list vals probs) last
-  let id [who] of t
-
-  ;;if the agent is non apical
-  ifelse count [my-out-streams] of turtle id > 0 [
-    ;;if we randomly decide to branch
-    ifelse random 100 < branching * [food] of turtle id  [
-      let trash grow_fungi id
-    ][
-      intercalary_grow id
+      ;;if apical
+      ifelse count [my-out-streams] of turtle id = 0 [
+        ;;if we randomly decide to grow
+        if random r_val < [food] of turtle id + apical_advantage [
+          let trash grow_fungi id
+        ]
+      ]
+      ;;if nonapical
+      [
+        ;;if we decide to grow
+        if random r_val < ([food] of turtle id) [
+          ;;if we decide to branch
+          ;;read the papers to see how this is related to food!!
+          ifelse random r_val > ([food] of turtle id / branching) [
+            let trash grow_fungi id
+          ]
+          ;;otherwise, intercalary
+          [
+            intercalary_grow id
+          ]
+        ]
+      ]
+      set index index + 1
     ]
   ]
-  ;;if apical, we will grow (doesn't matter if branching or not because can't branch an apical)
-  [let trash grow_fungi id]
 
 
 
@@ -422,46 +379,16 @@ to spread
 
 
 
-;
-;
 
 
-;  let r_val max [food] of mycelae
-;  let mycs [who] of mycelae with [food > mycelial_growth_threshold] ;;needs to meet the basic requirements for having enough food for mitosis
-;  if length mycs > 0 [ ;;if there are any that can reproduce
-;    ;;will be iterating through the list of viable mycelia
-;   let index 0
-;   while [index < length mycs] [
-;      let id item index mycs
-;
-;      ;;if apical
-;      ifelse count [my-out-streams] of turtle id = 0 [
-;        ;;if we randomly decide to grow
-;        if random r_val < [food] of turtle id + apical_advantage [
-;          let trash grow_fungi id
-;        ]
-;      ]
-;      ;;if nonapical
-;      [
-;        ;;if we decide to grow
-;        if random r_val < ([food] of turtle id) [
-;          ;;if we decide to branch
-;          ;;read the papers to see how this is related to food!!
-;          ifelse random r_val > ([food] of turtle id / branching) [
-;            let trash grow_fungi id
-;          ]
-;          ;;otherwise, intercalary
-;          [
-;           intercalary_grow id
-;          ]
-;        ]
-;      ]
-;      set index index + 1
-;    ]
-;  ]
-;
-;;
-;;
+
+
+
+
+
+
+
+
 
 
 
@@ -528,14 +455,14 @@ ticks
 
 SLIDER
 20
-95
+105
 192
-128
+138
 turn_radius
 turn_radius
 0
 180
-77.0
+117.0
 1
 1
 NIL
@@ -584,7 +511,7 @@ algae_sensitivity
 algae_sensitivity
 0
 100
-21.0
+30.0
 1
 1
 NIL
@@ -599,7 +526,7 @@ growth_rate
 growth_rate
 0
 1
-0.04
+0.08
 0.01
 1
 NIL
@@ -607,14 +534,14 @@ HORIZONTAL
 
 SLIDER
 20
-135
+145
 195
-168
+178
 mycelial_diffusion_const
 mycelial_diffusion_const
 0
 1
-0.11
+0.1
 0.01
 1
 NIL
@@ -622,14 +549,14 @@ HORIZONTAL
 
 SLIDER
 20
-55
+65
 192
-88
+98
 branching
 branching
 0
 3
-2.48
+1.09
 0.01
 1
 NIL
@@ -637,9 +564,9 @@ HORIZONTAL
 
 TEXTBOX
 25
-10
+20
 175
-41
+51
 Fungi (mycelae) Parameters
 14
 0.0
@@ -676,14 +603,14 @@ PENS
 
 SLIDER
 20
-175
+185
 195
-208
+218
 mycelial_growth_threshold
 mycelial_growth_threshold
 0
 100
-56.0
+94.0
 1
 1
 NIL
@@ -691,9 +618,9 @@ HORIZONTAL
 
 SLIDER
 20
-215
+225
 192
-248
+258
 apical_advantage
 apical_advantage
 0
