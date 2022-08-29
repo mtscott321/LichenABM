@@ -84,7 +84,7 @@ to grow_algae [id]
       let k 0
       ;;make the children
       hatch-algae 1 [set size algae_starting_size set health 100]
-      let n 2 + random 5
+      let n  + random 5
       while [k < n] [
         let newx x + 2.5 * algae_starting_size * sin((360 / n) * k)
         let newy y + 2.5 * algae_starting_size * cos((360 / n) * k)
@@ -217,15 +217,12 @@ to intercalary_grow [id]
 
   ;;get a list of the downstreams and pick one to add growth to (pick a downstream agent, who starts that stream)
   ask turtle id [
-    ;;only works if there are existing downstreams; if there aren't, we can't do intercalary
-    if count my-out-streams > 0 [
+    ;;only works if there are existing downstreams prior to growing; if there aren't, we can't do intercalary
+    if count my-out-streams > 1 [
       ask one-of my-out-streams with [[who] of end2 != child_id] [
         ask end2 [
 
-          ;;get the values we need for the next calculation (this is basically copied from the TO GROW operation)
-          let temp get-tip child_id
-          let tip_x item 0 temp
-          let tip_y item 1 temp
+
           let len ([size] of turtle child_id) / 2
           let h [heading] of turtle child_id
           let dir [heading] of self
@@ -239,7 +236,7 @@ to intercalary_grow [id]
           set ycor new_y
 
           ;;make a link/tie from the previous downstream to the new child
-          create-stream-from turtle (child_id) [tie hide-link ]
+          create-stream-from turtle (child_id) [tie hide-link]
         ]
       ;;remove the tie and the link between the parent and the previous downstream
       die
@@ -252,17 +249,6 @@ to intercalary_grow [id]
 
 end
 
-;; gets the tip of the mycelia of the agent
-to-report get-tip [id]
-  let h [heading] of turtle id
-  let len ([size] of turtle id ) / 2
-  let d_x (len * (sin h))
-  let d_y (len * (cos h))
-  let x [xcor] of turtle id + d_x
-  let y [ycor] of turtle id + d_y
-  report (list x y)
-
-end
 
 ;;make the mycelae associate with nearby algae
 to associate
@@ -289,6 +275,8 @@ to nutrients
     set temp temp - mycelial_nutrient_consumption ;;cost for living in each tick
 
     set food temp
+
+   ; if food < 0 [set food 0] ;;this line actually makes a surprising amount of difference
   ]
 
 end
@@ -334,6 +322,8 @@ end
 
 to spread
   let r_val max [food] of mycelae
+
+  ;let mycs [who] of mycelae
   let mycs [who] of mycelae with [food > mycelial_growth_threshold] ;;needs to meet the basic requirements for having enough food for mitosis
   if length mycs > 0 [ ;;if there are any that can reproduce
     ;;will be iterating through the list of viable mycelia
@@ -354,7 +344,8 @@ to spread
         if random r_val < ([food] of turtle id) [
           ;;if we decide to branch
           ;;read the papers to see how this is related to food!!
-          ifelse random r_val > ([food] of turtle id / branching) [
+
+          ifelse random r_val > ([food] of turtle id / (branching * 0.8 * (count [my-symbios] of turtle id + 1))) [
             let trash grow_fungi id
           ]
           ;;otherwise, intercalary
@@ -461,8 +452,8 @@ SLIDER
 turn_radius
 turn_radius
 0
-180
-117.0
+360
+167.0
 1
 1
 NIL
@@ -511,7 +502,7 @@ algae_sensitivity
 algae_sensitivity
 0
 100
-30.0
+90.0
 1
 1
 NIL
@@ -556,7 +547,7 @@ branching
 branching
 0
 3
-1.09
+0.71
 0.01
 1
 NIL
@@ -582,25 +573,6 @@ Algae Parameters
 0.0
 1
 
-PLOT
-5
-550
-205
-700
-Percent In Symbiosis
-Tick
-%
-0.0
-10.0
-0.0
-10.0
-true
-false
-"" ""
-PENS
-"default" 1.0 0 -11085214 true "" "plot (100 * count symbios / (count algae + 1) )"
-"pen-1" 1.0 0 -2674135 true "" "plot (100 * count symbios / (count mycelae + 1) )"
-
 SLIDER
 20
 185
@@ -610,7 +582,7 @@ mycelial_growth_threshold
 mycelial_growth_threshold
 0
 100
-94.0
+88.0
 1
 1
 NIL
@@ -630,6 +602,24 @@ apical_advantage
 1
 NIL
 HORIZONTAL
+
+PLOT
+10
+620
+210
+770
+Average Food
+Tick
+Avg Food
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -16777216 true "" "if count mycelae > 0 [ \nplot (sum [food] of mycelae) / count mycelae\n]"
 
 @#$#@#$#@
 ## WHAT IS IT?

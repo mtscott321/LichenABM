@@ -3,7 +3,7 @@ extensions [ rnd array]
 breed [algae alga]
 algae-own [health]
 breed [hyphae hypha]
-hyphae-own [down temp_down up temp_up] ;;signals from downstream and upstream
+hyphae-own [blue_ temp_blue red_ temp_red] ;;red is upstream, blue is downstream. They have underscores bc the colors are keywords in NetLogo
 
 directed-link-breed [streams stream] ;;hyphae stream link
 directed-link-breed [symbios symbio] ;;hyphae to aplanospore link
@@ -15,6 +15,8 @@ globals [hyphae_size
   algae_sensitivity
   parenthood_size
   delta
+  signal_decay_const
+  hyphal_growth_threshold
 ]
 
 to setup
@@ -25,7 +27,10 @@ to setup
   set algae_starting_size 5
   set parenthood_size 10
   set delta 1 ;;how much to stochastically wiggle
-  set hyphae_size 5
+  set hyphae_size 10
+  set algae_sensitivity 90
+  set signal_decay_const 0.7
+  set hyphal_growth_threshold 1
 
   ;;creating the starting agents. This will eventually depend on the way we want to start (random, isidia, soredia, etc)
   create-hyphae 10 [set shape "line" set color red set size hyphae_size]
@@ -35,7 +40,14 @@ to setup
 end
 
 to go
-   ;;algae growth
+  ;;decay of signalling proteins (is this necessary?)
+  ask hyphae [
+    set red_ red_ * signal_decay_const
+    set blue_ blue_ * signal_decay_const
+  ]
+
+
+  ;;algae growth
   ;;if the aplanospore is healthy
   ask algae [
     if random 100 < health [
@@ -50,14 +62,24 @@ to go
 
   ;;this is where I would put a function where the algae send signals so the hyphae can move towards them
 
-  ;;hyphae that are associated w algae send signals to up and downstream neighbors
+  ;;hyphae that are associated w algae send signals to red_ and blue_stream neighbors
   hyphae_signals
 
   ;;hyphae send a portion of their signals to adjacents
   hyphae_diffuse_signals
 
   ;;hyphae grow
-  hyphae_grow
+  ifelse growth_pattern = "a" [
+    hyphae_grow_a
+  ] [hyphae_grow_b]
+
+  ;;make the symbiotic bonds!
+  associate
+
+  ;;color the hyphal cells
+  hyphal_color
+
+  tick
 
 
 end
@@ -97,7 +119,7 @@ to wiggle [id]
 
 end
 
-;;update to make it the specific kind of link we need
+;;red_date to make it the specific kind of link we need
 to check_collisions
 
   ask algae [
@@ -128,7 +150,7 @@ to fix_collisions
       set conns (list end1 end2)
     ]
 
-    ;;sometimes they will randomly end up being at the exact same location, so we randomly move them
+    ;;sometimes they will randomly end red_ being at the exact same location, so we randomly move them
     ifelse ([xcor] of first conns = [xcor] of last conns and [ycor] of first conns = [ycor] of last conns) [
       ask first conns [set heading random 360 set health health - algae_sensitivity]
       ask last conns [set heading 180 + [heading] of first conns set health health - algae_sensitivity]
@@ -159,46 +181,182 @@ to fix_collisions
 end
 
 to hyphae_signals
-  ask hyphae with [count my-symbios > 0 ] [
-    ask my-out-streams [
-      ;;out links is downstream cells; this is closer to the growing tip
-      ask end2 [
-        set down down + 1
-      ]
+  ;;algae trigger chemical release in associated cells
+;  ask hyphae with [count my-symbios > 0] [
+;    set blue_ blue_ + 1
+;    set red_ red_ + 1
+;  ]
+  let temp 0
+  ask hyphae [
+    ask algae in-radius parenthood_size with [distance myself < (size * 1.5)] [
+      set temp (((size * 1.5) - distance myself) / parenthood_size)
     ]
-    ;;in streams is the parent/upstream cell; this is closer to the origin/root
-    ask my-in-streams [
-      ;;end1 is the 'from', and end2 is the 'to' in directed links
-      ask end1 [
-        set up up + 1
-      ]
-    ]
+    set red_ red_ + temp
+    set blue_ blue_ + temp
   ]
 end
 
 to hyphae_diffuse_signals
-  ;;down gets sent further downstream
-  ask hyphae with [down > 0] [
-    let d down
+  ;;blue_ gets sent further blue_stream
+  ask hyphae with [blue_ > 0] [
+    let d blue_
     ask my-out-streams [
       ask end2 [
-        set temp_down d * mycelial_diffusion_const
+        set temp_blue d * mycelial_diffusion_const
       ]
     ]
-    set down down * (1 - mycelial_diffusion_const)
+    set blue_ blue_ * (1 - mycelial_diffusion_const)
   ]
-  ;;up gets sent further upstream
-  ask hyphae with [up > 0] [
-    let u up
+  ;;red_ gets sent further red_stream
+  ask hyphae with [red_ > 0] [
+    let u red_
     ask my-in-streams [
       ask end1 [
-        set temp_up u * mycelial_diffusion_const
+        set temp_red u * mycelial_diffusion_const
       ]
     ]
-    set up up * (1 - mycelial_diffusion_const)
+    set red_ red_ * (1 - mycelial_diffusion_const)
+  ]
+  ask hyphae [
+    set red_ red_ + temp_red
+    set blue_ blue_ + temp_blue
+    set temp_red 0
+    set temp_blue 0
   ]
 end
 
+;;here are the two main functions (grow branch and grow nonbranch) that all the growth form functions will use
+
+to grow_non_branch
+  let intercalary? false
+  if count my-out-streams > 0 [set intercalary? true]
+  let child_id grow
+  ;;if intercalary (the cell is nonapical), we need to move the downstream cells to accomodate for the new growth
+  if intercalary? [
+    ;;getting the previous downstreams so I can move them to be after the new child
+    ask my-out-streams with [[who] of end2 != child_id] [
+      ask end2[
+        let len ([size] of turtle child_id) / 2
+        set xcor ([xcor] of turtle child_id) + len * (sin (heading) + sin ([heading] of turtle child_id))
+        set ycor ([ycor] of turtle child_id) + len * (cos (heading) + cos ([heading] of turtle child_id))
+        create-stream-from turtle child_id [tie hide-link]
+      ]
+      die
+    ]
+  ]
+
+end
+
+;;ideally, update to include Goodenough's data on intercalary vs. apical branching angles
+to grow_branch
+  ;;if apical, we need to grow twice; once to create a downstream, and another to create a branch
+  if count my-out-streams = 0 [
+    let trash grow
+  ]
+  let trash grow
+end
+
+;;just adds a downstream hyphal cell and returns its id
+to-report grow
+  let dir heading + (random-float turn_radius) - (turn_radius / 2)
+  let new_x xcor + (size / 2) * (sin(dir) + sin(heading))
+  let new_y ycor + (size / 2) * (cos(dir) + cos(heading))
+
+  let who_child -1
+
+  hatch-hyphae 1 [
+    set heading dir
+    set xcor new_x
+    set ycor new_y
+    ;;external variable -- saving the id so we can return it
+    set who_child who
+  ]
+
+  create-stream-to turtle who_child [tie hide-link]
+
+  report who_child
+
+end
+
+;;here are the functions that decide which hyphal cells will grow and in what way
+
+;;each agent has a probability of growing, and for each agent we stochastically find if it will grow
+;;then if it grows, we find if it will branch or not branch
+to hyphae_grow_a
+  ;;have to normalize all the values to do the probability stuff
+  let norm 0
+  ask hyphae [
+    let apical_coeff 1
+    if count my-out-streams = 0 [set apical_coeff apical_advantage] ;;only get the apical advantage coeff if apical
+    set norm norm + branching_coeff * blue_ * apical_coeff + red_
+  ]
+
+  ;;if no one has any signals, then just grow one randomly.
+  ifelse norm = 0 [
+    ask one-of hyphae [
+      ifelse random-float 10 < branching_coeff [
+        grow_branch
+      ] [grow_non_branch]
+    ]
+  ]
+  [
+    ask hyphae [
+      let apical_coeff 1
+      if count my-out-streams = 0 [set apical_coeff apical_advantage]
+      let prob_grow (branching_coeff * blue_ * apical_coeff + red_) / norm
+
+      ;;if we decide to grow
+      if random-float 1 <= prob_grow [
+        grow_branch
+        ifelse random-float 1 <= ((branching_coeff * blue_ * apical_coeff) / prob_grow)[
+        ][ grow_non_branch]
+      ]
+    ]
+  ]
+end
+
+;;this one is based on lichen_advanced2, where growth is only based on the amount of food you have.
+to hyphae_grow_b
+  set hyphal_growth_threshold 0.99 * (max [red_ + blue_] of hyphae)
+  let r_val max [red_ + blue_] of hyphae
+  let mycs [who] of hyphae with [red_ + blue_ > hyphal_growth_threshold]
+  if length mycs > 0 [
+    let index 0
+    while [index < length mycs] [
+      ;;getting the id of this hyphae
+      let id item index mycs
+      ask turtle id [
+        let apical_coeff 0
+        if count my-out-streams = 0 [set apical_coeff apical_advantage]
+        ;;if we randomly decide to grow
+        if random-float r_val < red_ + blue_ + apical_advantage [
+          ifelse random (r_val / branching_coeff) < ( red_ + blue_) / branching_coeff [
+          grow_branch
+          ][grow_non_branch]
+        ]
+      ]
+      set index index + 1
+    ]
+  ]
+end
+
+to associate
+  ask hyphae [
+    let temp who
+    ask (algae) in-radius parenthood_size with [distance myself < (size) / 2 and count my-symbios = 0] [
+      ;;compute overlap = sum(radii) - distance
+      create-symbio-from (turtle temp) [hide-link tie]
+    ]
+  ]
+end
+
+to hyphal_color
+  ask hyphae [
+    ;set color scale-color red (red_ + blue_) (min [red_ + blue_] of hyphae) (max [red_ + blue_] of hyphae)
+    set color scale-color red (red_) (min [red_ ] of hyphae) (max [red_ ] of hyphae)
+  ]
+
+end
 
 
 
@@ -231,10 +389,10 @@ ticks
 30.0
 
 BUTTON
-10
-355
-73
-388
+15
+450
+78
+483
 setup
 setup
 NIL
@@ -248,10 +406,10 @@ NIL
 1
 
 BUTTON
-120
-355
-183
-388
+125
+450
+188
+483
 go
 go
 T
@@ -265,15 +423,15 @@ NIL
 1
 
 SLIDER
-10
-310
-182
-343
+15
+405
+187
+438
 algal_growth_rate
 algal_growth_rate
 0
 1
-0.08
+0.13
 0.01
 1
 NIL
@@ -281,27 +439,128 @@ HORIZONTAL
 
 SLIDER
 15
-30
-202
-63
+80
+190
+113
 mycelial_diffusion_const
 mycelial_diffusion_const
 0
 1
-0.8
+0.01
 0.01
 1
 NIL
 HORIZONTAL
 
+SLIDER
+15
+130
+190
+163
+apical_advantage
+apical_advantage
+0
+10
+0.0
+0.01
+1
+NIL
+HORIZONTAL
+
+SLIDER
+15
+180
+190
+213
+branching_coeff
+branching_coeff
+0
+10
+0.71
+0.01
+1
+NIL
+HORIZONTAL
+
+TEXTBOX
+15
+30
+165
+55
+Fungal Globals
+16
+0.0
+1
+
+TEXTBOX
+20
+355
+170
+390
+Algal Globals
+16
+0.0
+1
+
+CHOOSER
+15
+270
+153
+315
+growth_pattern
+growth_pattern
+"a" "b"
+1
+
+SLIDER
+15
+225
+190
+258
+turn_radius
+turn_radius
+0
+180
+100.0
+1
+1
+NIL
+HORIZONTAL
+
+PLOT
+5
+490
+205
+640
+Signalling Proteins
+Tick
+Average Value
+0.0
+1.0
+0.0
+1.0
+true
+false
+"" ""
+PENS
+"red" 1.0 0 -2674135 true "" "if count hyphae > 0 [\nplot (sum [red_] of hyphae) / (count hyphae)\n]"
+"blue" 1.0 0 -13345367 true "" "if count hyphae > 0 [\nplot (sum [blue_] of hyphae) / (count hyphae)\n]"
+
 @#$#@#$#@
 ## WHAT IS IT?
 
-(a general understanding of what the model is trying to show or explain)
+This is a simluation of the basic symbiotic interactions that occur in lichen: the interaction between a fungi (mycobiont) and an algae/cyanobacteria (photobiont). The specific goal of this particular model is to show early development of the symbiotic interaction. In the interface, algae are round green cells, and mycelae are thin red lines.
 
-## HOW IT WORKS
+Parameters **bolded** are ones which are able to be changed in the Interface tab. Some global paramters must be changed in the code tab, to avoid crowding and confusion -- and because all of the non-bolded parameters are unlikely to be seen in nature/don't affect much. 
 
-(what rules the agents use to create the overall behavior of the model)
+## AGENTS
+
+There are two agent types: the algae and the fungal mycelae (photo and mycobiont, respectively). These were chosen because they are the two primary symbionts in nearly all lichen, and it is thought that their interaction determines the physical shape of lichen.
+
+The agent selection and subsequent interactions are justified by translating as well as possible the interactions explained in Armaleo 1991 ("Experimental Microbiology of Lichens: Mycelia Fragmentation, A Novel Growth Chamber, and the Origins of Thallus Differentiation", Symbiosis 11 163-177). Unless otherwise stated, all interactions and actions by the agents are derived from this paper. This section covers the properities, actions, and interactions of the agent types. All model inputs are discussed in this section, as all inputs are related to affecting agent operation (no environmental variables).
+
+
+
 
 ## HOW TO USE IT
 
