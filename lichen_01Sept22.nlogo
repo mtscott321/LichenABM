@@ -383,6 +383,21 @@ end
 ;;there are just so many ways to code this section
 
 to spread
+
+
+
+
+
+
+
+
+
+
+
+
+
+ ;;this is the correct code, but I want to update it to use the lichen_armaleo growth functions because they're better written
+
   let r_val max [food] of mycelae
 
   ;let mycs [who] of mycelae
@@ -471,13 +486,6 @@ to spread
 ;    [let trash grow_fungi id]
 ;  ]
 end
-
-to test
-  let mycs (list mycelae with [food > 10])
-  output-show length mycs
-  output-show mycs
-
-end
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
@@ -508,9 +516,9 @@ ticks
 
 SLIDER
 20
-105
+205
 192
-138
+238
 turn_radius
 turn_radius
 0
@@ -523,9 +531,9 @@ HORIZONTAL
 
 BUTTON
 20
-475
+575
 83
-508
+608
 NIL
 setup
 NIL
@@ -540,9 +548,9 @@ NIL
 
 BUTTON
 130
-475
+575
 193
-508
+608
 NIL
 go
 T
@@ -557,9 +565,9 @@ NIL
 
 SLIDER
 20
-380
+480
 192
-413
+513
 algae_sensitivity
 algae_sensitivity
 0
@@ -572,9 +580,9 @@ HORIZONTAL
 
 SLIDER
 20
-420
+520
 192
-453
+553
 growth_rate
 growth_rate
 0
@@ -587,9 +595,9 @@ HORIZONTAL
 
 SLIDER
 20
-145
+245
 195
-178
+278
 mycelial_diffusion_const
 mycelial_diffusion_const
 0
@@ -627,9 +635,9 @@ Fungi (mycelae) Parameters
 
 TEXTBOX
 25
-355
+455
 175
-381
+481
 Algae Parameters
 14
 0.0
@@ -637,9 +645,9 @@ Algae Parameters
 
 SLIDER
 20
-185
+285
 195
-218
+318
 mycelial_growth_threshold
 mycelial_growth_threshold
 0
@@ -652,9 +660,9 @@ HORIZONTAL
 
 SLIDER
 20
-225
+325
 192
-258
+358
 apical_advantage
 apical_advantage
 0
@@ -667,9 +675,9 @@ HORIZONTAL
 
 SLIDER
 20
-270
+370
 195
-303
+403
 mycelial_nutrient_consumption
 mycelial_nutrient_consumption
 0
@@ -682,9 +690,9 @@ HORIZONTAL
 
 CHOOSER
 20
-310
+410
 158
-355
+455
 starting
 starting
 "random" "soredia"

@@ -109,7 +109,7 @@ to go
     if health <= 0 [die]
     wiggle who
   ]
-  ask overlaps [die] ;;overlaps are existing links from previous round that we want to redetermine
+
   check_collisions
   fix_collisions
 
@@ -172,7 +172,7 @@ end
 
 ;;update to make it the specific kind of link we need
 to check_collisions
-
+  ask overlaps [die]
   ask algae [
     let max_size parenthood_size
     ;;got this form the GasLab Circular Particles collision test
@@ -564,7 +564,7 @@ algae_sensitivity
 algae_sensitivity
 0
 100
-28.0
+0.0
 1
 1
 NIL

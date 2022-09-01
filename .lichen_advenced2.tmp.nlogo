@@ -523,9 +523,9 @@ HORIZONTAL
 
 BUTTON
 20
-530
+475
 83
-563
+508
 NIL
 setup
 NIL
@@ -540,9 +540,9 @@ NIL
 
 BUTTON
 130
-530
+475
 193
-563
+508
 NIL
 go
 T
@@ -557,9 +557,9 @@ NIL
 
 SLIDER
 20
-435
+380
 192
-468
+413
 algae_sensitivity
 algae_sensitivity
 0
@@ -572,9 +572,9 @@ HORIZONTAL
 
 SLIDER
 20
-475
+420
 192
-508
+453
 growth_rate
 growth_rate
 0
@@ -587,9 +587,9 @@ HORIZONTAL
 
 SLIDER
 20
-200
+145
 195
-233
+178
 mycelial_diffusion_const
 mycelial_diffusion_const
 0
@@ -627,9 +627,9 @@ Fungi (mycelae) Parameters
 
 TEXTBOX
 25
-410
+355
 175
-436
+381
 Algae Parameters
 14
 0.0
@@ -637,9 +637,9 @@ Algae Parameters
 
 SLIDER
 20
-240
+185
 195
-273
+218
 mycelial_growth_threshold
 mycelial_growth_threshold
 0
@@ -652,9 +652,9 @@ HORIZONTAL
 
 SLIDER
 20
-280
+225
 192
-313
+258
 apical_advantage
 apical_advantage
 0
@@ -667,9 +667,9 @@ HORIZONTAL
 
 SLIDER
 20
-325
+270
 195
-358
+303
 mycelial_nutrient_consumption
 mycelial_nutrient_consumption
 0
@@ -682,9 +682,9 @@ HORIZONTAL
 
 CHOOSER
 20
-365
+310
 158
-410
+355
 starting
 starting
 "random" "soredia"
