@@ -4,6 +4,7 @@ breed [algae alga]
 algae-own [health]
 breed [hyphae hypha]
 hyphae-own [food temp_food]
+patches-own [algal_signals]
 
 directed-link-breed [streams stream] ;;hyphae stream link
 directed-link-breed [symbios symbio] ;;hyphae to aplanospore link
@@ -17,6 +18,9 @@ globals [hyphae_size
   algal_growth_rate
   hyphal_nutrient_consumption
   hyphal_diffusion_const
+  turn_radius
+  hyphal_growth_threshold
+  branching
 ]
 
 to setup
@@ -27,12 +31,15 @@ to setup
   set parenthood_size 10
   set delta 1
   set algal_growth_rate 0.08
-  set hyphal_nutrient_consumption 0.04
+  set hyphal_nutrient_consumption 0.1
   set hyphal_diffusion_const 0.11
+  set turn_radius 100
+  set hyphal_growth_threshold 100
+  set branching 0.87
 
   ifelse starting_state = "random" [
     ;;creating the starting agents. This will eventually depend on the way we want to start (random, isidia, soredia, etc)
-    ;create-hyphae 10 [set shape "line" set color red set size hyphae_size set food 1]
+    create-hyphae 10 [set shape "line" set color red set size hyphae_size set food 1]
     create-algae 1 [set shape "circle" set color green set size 10 set health 100 ]
   ] [soredia]
 
@@ -56,6 +63,14 @@ to go
   ;;hyphae send food to their neighbors, proportional to the concentration gradient between the two cells and the hyphal_diffusion_const
   send_food
 
+  ;;hyphae will grow
+  grow_hyphae
+
+  ;;change color of the hyphae to be proportional to the food they have
+  hyphal_color
+
+  ;;create symbiotic relationships
+  associate
 
   tick
 end
@@ -198,11 +213,11 @@ to get_food
     ]
 
     ;;cost of living for each tick -- could also be a constant
-    set temp temp * hyphal_nutrient_consumption
+    set temp temp * (1 - hyphal_nutrient_consumption)
     set food temp
 
     ;;with a multiplier for the cost of living, food will never be 0
-   ; if food < 0 [set food 0] ;;this line actually makes a surprising amount of difference
+    if food <= 1 [set food 1] ;;this line actually makes a surprising amount of difference
   ]
 end
 
@@ -228,8 +243,86 @@ to send_food
   ]
 end
 
+;;main function that controls hyphal growth!
+to grow_hyphae
+  let r_val max [food] of hyphae
+  let fungi [who] of hyphae with [food > hyphal_growth_threshold] ;;needs to meet the basic requirements for having enough food for mitosis
+  if length fungi > 0 [
+    let i 0
+    while [i < length fungi] [
+      let id item i fungi
+      ask turtle id [
+        if random r_val < food [
+          ifelse random r_val > (food / (branching * 0.8 * (count my-symbios + 1))) [
+            grow_branch
+          ]
+          [grow_non_branch]
+        ]
+      ]
+      set i i + 1
+    ]
+  ]
 
+end
 
+;;here are the two main functions (grow branch and grow nonbranch) that all the growth form functions will use
+to grow_non_branch
+  let intercalary? false
+  if count my-out-streams > 0 [set intercalary? true]
+  let child_id grow turn_radius
+  ;;if intercalary (the cell is nonapical), we need to move the downstream cells to accomodate for the new growth
+  if intercalary? [
+    ;;getting the previous downstreams so I can move them to be after the new child
+    ask my-out-streams with [[who] of end2 != child_id] [
+      ask end2[
+        let len ([size] of turtle child_id) / 2
+        set xcor ([xcor] of turtle child_id) + len * (sin (heading) + sin ([heading] of turtle child_id))
+        set ycor ([ycor] of turtle child_id) + len * (cos (heading) + cos ([heading] of turtle child_id))
+        create-stream-from turtle child_id [tie hide-link]
+      ]
+      die
+    ]
+  ]
+
+end
+
+;;ideally, update to include Goodenough's data on intercalary vs. apical branching angles
+to grow_branch
+  ;;if apical, we need to grow twice; once to create a downstream, and another to create a branch
+  if count my-out-streams = 0 [
+    let trash grow 360
+  ]
+  let trash grow 360
+end
+
+;;just adds a downstream hyphal cell and returns its id
+to-report grow [angle]
+  let dir heading + (random-float angle) - (angle / 2)
+  let new_x xcor + (size / 2) * (sin(dir) + sin(heading))
+  let new_y ycor + (size / 2) * (cos(dir) + cos(heading))
+
+  let who_child -1
+
+  hatch-hyphae 1 [
+    set heading dir
+    set xcor new_x
+    set ycor new_y
+    set food 1
+    ;;external variable -- saving the id so we can return it
+    set who_child who
+  ]
+
+  create-stream-to turtle who_child [tie hide-link]
+  set food food / 2
+  report who_child
+
+end
+
+to hyphal_color
+  ask hyphae [
+    set color scale-color red food (min [food] of hyphae) (max [food] of hyphae)
+  ]
+end
 
 
 
@@ -277,7 +370,7 @@ CHOOSER
 starting_state
 starting_state
 "random" "soredia"
-1
+0
 
 BUTTON
 20
