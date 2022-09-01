@@ -14,7 +14,8 @@ globals [mycelae_size
   algae_starting_size
   parenthood_size
   delta
-  mycelial_nutrient_consumption]
+  ;mycelial_nutrient_consumption]
+]
 
 to setup
   ca
@@ -25,13 +26,73 @@ to setup
   set parenthood_size 10
   set delta 1 ;;how much to stochastically wiggle
   set mycelae_size 5
-  set mycelial_nutrient_consumption 5
+ ; set mycelial_nutrient_consumption 5
 
-  ;;creating the starting agents. This will eventually depend on the way we want to start (random, isidia, soredia, etc)
-  create-mycelae 10 [set shape "line" set color red set size mycelae_size set food 1]
+  ifelse starting = "random" [
 
-  create-algae 1 [set shape "circle" set color green set size algae_starting_size set health 100 ]
+    ;;creating the starting agents. This will eventually depend on the way we want to start (random, isidia, soredia, etc)
+    create-mycelae 10 [set shape "line" set color red set size mycelae_size set food 1]
 
+    create-algae 1 [set shape "circle" set color green set size algae_starting_size set health 100 ]
+
+  ] [soredia]
+
+
+end
+
+to soredia
+  let k 0
+  let n 2 + random 5
+  while [k < n] [
+    let newx 1.5 * algae_starting_size * sin((360 / n) * k) + (4 * delta - random-float (8 * delta))
+    let newy 1.5 * algae_starting_size * cos((360 / n) * k) + (4 * delta - random-float (8 * delta))
+    let temp -1
+    create-algae 1 [set shape "circle"
+      set color green
+      set xcor newx
+      set ycor newy
+      set size algae_starting_size
+      set health 100
+      set temp who]
+    create-mycelae 1 [set shape "line"
+      set color red
+      set size mycelae_size
+      set food 1
+      set heading towards alga temp]
+    set k k + 1
+  ]
+
+  ask mycelae [
+    let len size / 2
+    set xcor len * sin(heading)
+    set ycor len * cos(heading)
+  ]
+
+  let fungi [who] of mycelae
+  let index 0
+  while [index < length fungi][
+    let trash grow_fungi item index fungi
+    set index index + 1
+  ]
+
+
+  associate
+
+  let squid 0
+  while [count mycelae with [(count my-symbios + count my-out-streams) = 0] > 0 and squid < n] [
+    ask mycelae with [(count my-symbios + count my-out-streams) = 0] [
+      let x xcor
+      let y ycor
+      hatch 1 [
+        let len size / 2
+        set xcor x + len * sin(heading)
+        set ycor y + len * cos(heading)
+        set squid squid + 1
+      ]
+    ]
+    set squid squid + 1
+    associate
+  ]
 
 end
 
@@ -84,7 +145,7 @@ to grow_algae [id]
       let k 0
       ;;make the children
       hatch-algae 1 [set size algae_starting_size set health 100]
-      let n  + random 5
+      let n 3 + random 5
       while [k < n] [
         let newx x + 2.5 * algae_starting_size * sin((360 / n) * k)
         let newy y + 2.5 * algae_starting_size * cos((360 / n) * k)
@@ -198,6 +259,7 @@ to-report grow_fungi [id]
     set xcor new_x
     set ycor new_y
     set color red
+    set food 1
 
     ;;this is an external variable
     set who_child who
@@ -272,8 +334,8 @@ to nutrients
     ask algae in-radius parenthood_size with [distance myself < (size * 1.5) ] [
       set temp temp + 10 * (((size * 1.5) - distance myself) / parenthood_size) ;;assuming linear concentration gradient
     ]
-    set temp temp - mycelial_nutrient_consumption ;;cost for living in each tick
-
+    ;set temp temp - mycelial_nutrient_consumption ;;cost for living in each tick
+    set temp temp * mycelial_nutrient_consumption
     set food temp
 
    ; if food < 0 [set food 0] ;;this line actually makes a surprising amount of difference
@@ -453,7 +515,7 @@ turn_radius
 turn_radius
 0
 360
-167.0
+100.0
 1
 1
 NIL
@@ -461,9 +523,9 @@ HORIZONTAL
 
 BUTTON
 20
-415
+530
 83
-448
+563
 NIL
 setup
 NIL
@@ -478,9 +540,9 @@ NIL
 
 BUTTON
 130
-415
+530
 193
-448
+563
 NIL
 go
 T
@@ -495,14 +557,14 @@ NIL
 
 SLIDER
 20
-320
+435
 192
-353
+468
 algae_sensitivity
 algae_sensitivity
 0
 100
-90.0
+0.0
 1
 1
 NIL
@@ -510,9 +572,9 @@ HORIZONTAL
 
 SLIDER
 20
-360
+475
 192
-393
+508
 growth_rate
 growth_rate
 0
@@ -525,14 +587,14 @@ HORIZONTAL
 
 SLIDER
 20
-145
+200
 195
-178
+233
 mycelial_diffusion_const
 mycelial_diffusion_const
 0
 1
-0.1
+0.11
 0.01
 1
 NIL
@@ -547,7 +609,7 @@ branching
 branching
 0
 3
-0.71
+0.87
 0.01
 1
 NIL
@@ -565,9 +627,9 @@ Fungi (mycelae) Parameters
 
 TEXTBOX
 25
-295
+410
 175
-321
+436
 Algae Parameters
 14
 0.0
@@ -575,14 +637,14 @@ Algae Parameters
 
 SLIDER
 20
-185
+240
 195
-218
+273
 mycelial_growth_threshold
 mycelial_growth_threshold
 0
 100
-88.0
+95.0
 1
 1
 NIL
@@ -590,9 +652,9 @@ HORIZONTAL
 
 SLIDER
 20
-225
+280
 192
-258
+313
 apical_advantage
 apical_advantage
 0
@@ -603,23 +665,30 @@ apical_advantage
 NIL
 HORIZONTAL
 
-PLOT
-10
-620
-210
-770
-Average Food
-Tick
-Avg Food
-0.0
-10.0
-0.0
-10.0
-true
-false
-"" ""
-PENS
-"default" 1.0 0 -16777216 true "" "if count mycelae > 0 [ \nplot (sum [food] of mycelae) / count mycelae\n]"
+SLIDER
+20
+325
+195
+358
+mycelial_nutrient_consumption
+mycelial_nutrient_consumption
+0
+1
+0.96
+0.01
+1
+NIL
+HORIZONTAL
+
+CHOOSER
+20
+365
+158
+410
+starting
+starting
+"random" "soredia"
+0
 
 @#$#@#$#@
 ## WHAT IS IT?

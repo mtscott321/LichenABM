@@ -3,7 +3,7 @@ extensions [ rnd array]
 breed [algae alga]
 algae-own [health]
 breed [hyphae hypha]
-hyphae-own [blue_ temp_blue red_ temp_red] ;;red is upstream, blue is downstream. They have underscores bc the colors are keywords in NetLogo
+hyphae-own [blue_ temp_blue red_ temp_red food temp_food] ;;red is upstream, blue is downstream. They have underscores bc the colors are keywords in NetLogo
 
 directed-link-breed [streams stream] ;;hyphae stream link
 directed-link-breed [symbios symbio] ;;hyphae to aplanospore link
@@ -33,7 +33,7 @@ to setup
   set hyphal_growth_threshold 1
 
   ;;creating the starting agents. This will eventually depend on the way we want to start (random, isidia, soredia, etc)
-  create-hyphae 10 [set shape "line" set color red set size hyphae_size]
+  create-hyphae 10 [set shape "line" set color red set size hyphae_size set food 1]
 
   create-algae 1 [set shape "circle" set color green set size algae_starting_size set health 100 ]
 
@@ -193,6 +193,16 @@ to hyphae_signals
     ]
     set red_ red_ + temp
     set blue_ blue_ + temp
+  ]
+
+  ask hyphae [
+    set temp food
+    ask algae in-radius parenthood_size with [distance myself < (size * 1.5) ] [
+      set temp temp + 10 * (((size * 1.5) - distance myself) / parenthood_size) ;;assuming linear concentration gradient
+    ]
+    set temp temp * signal_decay_const ;;cost for living in each tick
+
+    set food temp
   ]
 end
 
@@ -359,13 +369,12 @@ to hyphal_color
 end
 
 
-
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
 10
-938
-739
+1011
+820
 -1
 -1
 0.9
@@ -431,7 +440,7 @@ algal_growth_rate
 algal_growth_rate
 0
 1
-0.55
+0.08
 0.01
 1
 NIL
@@ -446,7 +455,7 @@ mycelial_diffusion_const
 mycelial_diffusion_const
 0
 1
-0.01
+0.1
 0.01
 1
 NIL
@@ -460,8 +469,8 @@ SLIDER
 apical_advantage
 apical_advantage
 0
-10
-0.0
+1
+0.5
 0.01
 1
 NIL
@@ -476,7 +485,7 @@ branching_coeff
 branching_coeff
 0
 10
-1.06
+0.71
 0.01
 1
 NIL
@@ -509,7 +518,7 @@ CHOOSER
 315
 growth_pattern
 growth_pattern
-"a" "b"
+"a" "b" "food-based"
 0
 
 SLIDER
@@ -521,7 +530,7 @@ turn_radius
 turn_radius
 0
 180
-100.0
+152.0
 1
 1
 NIL
