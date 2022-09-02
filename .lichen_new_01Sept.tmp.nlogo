@@ -4,7 +4,7 @@ breed [algae alga]
 algae-own [health]
 breed [hyphae hypha]
 hyphae-own [food temp_food]
-
+patches-own [algal_signals temp_algal_signals]
 
 directed-link-breed [streams stream] ;;hyphae stream link
 directed-link-breed [symbios symbio] ;;hyphae to aplanospore link
@@ -15,6 +15,7 @@ globals [hyphae_size
   algae_starting_size
   parenthood_size
   delta
+  diffusion_const
   algal_growth_rate
   hyphal_nutrient_consumption
   hyphal_diffusion_const
@@ -26,12 +27,13 @@ globals [hyphae_size
 to setup
   ca
   reset-ticks
-  set hyphae_size 10
+  set hyphae_size 5
   set algae_starting_size 5
   set parenthood_size 10
   set delta 1
+  set diffusion_const 0.9
   set algal_growth_rate 0.08
-  set hyphal_nutrient_consumption 0.1
+  set hyphal_nutrient_consumption 0.04
   set hyphal_diffusion_const 0.11
   set turn_radius 100
   set hyphal_growth_threshold 100
@@ -57,6 +59,12 @@ to go
   check_collisions
   fix_collisions
 
+  ;;algae release signals
+  algae_send_signals
+
+  ;;signals diffuse through patches/media
+  signals_diffuse
+
   ;;hyphae get food from algae
   get_food
 
@@ -64,7 +72,7 @@ to go
   send_food
 
   ;;hyphae will grow
-  grow_hyphae
+  grow_hyphae_old_style
 
   ;;change color of the hyphae to be proportional to the food they have
   hyphal_color
@@ -104,6 +112,10 @@ to soredia
     let len size / 2
     set xcor len * sin(heading)
     set ycor len * cos(heading)
+  ]
+
+  ask hyphae [
+    grow_non_branch
   ]
   associate
 
@@ -204,6 +216,29 @@ to fix_collisions
   ]
 end
 
+;;algae send signals to adjacent patches
+;;potentially, update to make signals sent proportional to size
+to algae_send_signals
+  ask algae [
+    ask patches in-radius size [
+      set algal_signals algal_signals + 1
+    ]
+  ]
+end
+
+;;signals diffuse among the patches
+;;based on Heat Diffusion Model in NetLogo Models Library
+to signals_diffuse
+  ask patches with [algal_signals > 0] [
+    set temp_algal_signals (diffusion_const * (sum [algal_signals] of neighbors4)) + diffusion_const * algal_signals
+  ]
+  if show_algal_signals [ask patches [set pcolor black]]
+  ask patches with [temp_algal_signals + algal_signals > 0] [
+    set algal_signals temp_algal_signals
+    if show_algal_signals [set pcolor blue]
+  ]
+end
+
 to get_food
   ask hyphae [
     ;;should alter to make this representative of actual chemical diffuson gradient
@@ -244,7 +279,7 @@ to send_food
 end
 
 ;;main function that controls hyphal growth!
-to grow_hyphae
+to grow_hyphae_old_style
   let r_val max [food] of hyphae
   let fungi [who] of hyphae with [food > hyphal_growth_threshold] ;;needs to meet the basic requirements for having enough food for mitosis
   if length fungi > 0 [
@@ -324,10 +359,15 @@ to hyphal_color
   ]
 end
 
-
-
-
-
+to-report get-tip [id]
+  let h [heading] of turtle id
+  let len ([size] of turtle id ) / 2
+  let d_x (len * (sin h))
+  let d_y (len * (cos h))
+  let x [xcor] of turtle id + d_x
+  let y [ycor] of turtle id + d_y
+  report (list x y)
+end
 
 
 
@@ -356,8 +396,8 @@ GRAPHICS-WINDOW
 400
 -400
 400
-0
-0
+1
+1
 1
 ticks
 30.0
@@ -370,7 +410,7 @@ CHOOSER
 starting_state
 starting_state
 "random" "soredia"
-0
+1
 
 BUTTON
 20
@@ -406,8 +446,37 @@ NIL
 NIL
 1
 
+CHOOSER
+30
+85
+168
+130
+growth_form
+growth_form
+"old style"
+0
+
+SWITCH
+20
+145
+177
+178
+show_algal_signals
+show_algal_signals
+1
+1
+-1000
+
 @#$#@#$#@
-## WHAT IS IT?
+## TO DO
+
+useing the get tip operation, find the direction from the tip of a cell with the greatest gradient. then, make it so the cells will grow in that direction. 
+
+that means that downstream cells won't grow, because tehy won't grow against a gradient. intercalary growth will happen, though, because the cells will want to grow towards the algae. 
+
+so, check to see if cells grow, proportional to their food adn the intensity of the cocnentration gradient. then, decide if it's better ot grow a new cell, or branch (?). at least for intercalary. for apical, they're the same. 
+
+
 
 (a general understanding of what the model is trying to show or explain)
 

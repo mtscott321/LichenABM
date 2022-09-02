@@ -109,7 +109,7 @@ to go
     if health <= 0 [die]
     wiggle who
   ]
-  ask overlaps [die] ;;overlaps are existing links from previous round that we want to redetermine
+
   check_collisions
   fix_collisions
 
@@ -172,7 +172,7 @@ end
 
 ;;update to make it the specific kind of link we need
 to check_collisions
-
+  ask overlaps [die]
   ask algae [
     let max_size parenthood_size
     ;;got this form the GasLab Circular Particles collision test
@@ -644,7 +644,7 @@ mycelial_growth_threshold
 mycelial_growth_threshold
 0
 100
-95.0
+100.0
 1
 1
 NIL
@@ -689,6 +689,24 @@ starting
 starting
 "random" "soredia"
 0
+
+PLOT
+30
+565
+230
+715
+hyphae food
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -16777216 true "" "if count mycelae > 0 [plot (sum [food] of mycelae) / (count mycelae)]"
 
 @#$#@#$#@
 ## WHAT IS IT?
