@@ -18,6 +18,7 @@ globals [hyphae_size
   diffusion_const
   algal_growth_rate
   hyphal_nutrient_consumption
+  hyphal_sensing_range
   hyphal_diffusion_const
   turn_radius
   hyphal_growth_threshold
@@ -34,6 +35,7 @@ to setup
   set diffusion_const 0.9
   set algal_growth_rate 0.08
   set hyphal_nutrient_consumption 0.04
+  set hyphal_sensing_range 5
   set hyphal_diffusion_const 0.11
   set turn_radius 100
   set hyphal_growth_threshold 100
@@ -369,6 +371,23 @@ to-report get-tip [id]
   report (list x y)
 end
 
+to-report chemotaxis_heading [l]
+  let x first l
+  let y last l
+  let tip patch x y
+  let max_val -1
+  let max_p l
+  ask tip [
+    ask patches in-radius hyphal_sensing_range [
+      if algal_signals > max_p [
+        set max_p algal_signals
+
+      ]
+    ]
+  ]
+  report 0
+end
+
 
 
 
@@ -475,8 +494,6 @@ useing the get tip operation, find the direction from the tip of a cell with the
 that means that downstream cells won't grow, because tehy won't grow against a gradient. intercalary growth will happen, though, because the cells will want to grow towards the algae. 
 
 so, check to see if cells grow, proportional to their food adn the intensity of the cocnentration gradient. then, decide if it's better ot grow a new cell, or branch (?). at least for intercalary. for apical, they're the same. 
-
-
 
 (a general understanding of what the model is trying to show or explain)
 

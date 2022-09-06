@@ -18,6 +18,7 @@ globals [hyphae_size
   diffusion_const
   algal_growth_rate
   hyphal_nutrient_consumption
+  hyphal_sensing_range
   hyphal_diffusion_const
   turn_radius
   hyphal_growth_threshold
@@ -34,6 +35,7 @@ to setup
   set diffusion_const 0.9
   set algal_growth_rate 0.08
   set hyphal_nutrient_consumption 0.04
+  set hyphal_sensing_range 5
   set hyphal_diffusion_const 0.11
   set turn_radius 100
   set hyphal_growth_threshold 100
@@ -367,6 +369,23 @@ to-report get-tip [id]
   let x [xcor] of turtle id + d_x
   let y [ycor] of turtle id + d_y
   report (list x y)
+end
+
+to-report chemotaxis_heading [l]
+  let x first l
+  let y last l
+  let tip patch x y
+  let max_val -1
+  let max_p -1
+  ask tip [
+    ask patches in-radius hyphal_sensing_range [
+      if algal_signals > max_val [
+        set max_val algal_signals
+        set max_p self
+      ]
+    ]
+  ]
+  report max_p
 end
 
 
