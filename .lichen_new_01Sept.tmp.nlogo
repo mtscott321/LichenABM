@@ -376,22 +376,33 @@ to-report chemotaxis_heading [l]
   let y last l
   let tip patch x y
   let max_val -1
-  let max_p l
+  let max_p -1
   ask tip [
     ask patches in-radius hyphal_sensing_range [
-      if algal_signals > max_p [
-        set max_p algal_signals
-
+      if algal_signals > max_val [
+        set max_val algal_signals
+        set max_p self
       ]
     ]
   ]
-  report 0
+  report max_p
 end
 
+;;gets the locatiio
+to-report heading_a_to_b [a b]
+  let x1 first a
+  let y1 last a
 
+  let x2 first b
+  let y2 last b
 
+  let dx_ x2 - x1
+  let dy_ y2 - y1
 
+  let angle atan dx_ dy_
+  report angle
 
+end
 
 @#$#@#$#@
 GRAPHICS-WINDOW

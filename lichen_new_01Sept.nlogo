@@ -388,10 +388,21 @@ to-report chemotaxis_heading [l]
   report max_p
 end
 
+;;gets the two points and shows the heading from a to b (this is used to get the heading from the tip of the cell to the gradient)
+to-report heading_a_to_b [a b]
+  let x1 first a
+  let y1 last a
 
+  let x2 first b
+  let y2 last b
 
+  let dx_ x2 - x1
+  let dy_ y2 - y1
 
+  let angle atan dx_ dy_
+  report angle
 
+end
 
 @#$#@#$#@
 GRAPHICS-WINDOW
