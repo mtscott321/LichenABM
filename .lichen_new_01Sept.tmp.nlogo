@@ -74,7 +74,9 @@ to go
   send_food
 
   ;;hyphae will grow
-  grow_hyphae_old_style
+  ifelse growth_form = "old style" [
+    grow_hyphae_old_style]
+  [grow_hyphae_new_style]
 
   ;;change color of the hyphae to be proportional to the food they have
   hyphal_color
@@ -306,7 +308,7 @@ end
 to grow_non_branch
   let intercalary? false
   if count my-out-streams > 0 [set intercalary? true]
-  let child_id grow turn_radius
+  let child_id grow_angle turn_radius
   ;;if intercalary (the cell is nonapical), we need to move the downstream cells to accomodate for the new growth
   if intercalary? [
     ;;getting the previous downstreams so I can move them to be after the new child
@@ -327,14 +329,18 @@ end
 to grow_branch
   ;;if apical, we need to grow twice; once to create a downstream, and another to create a branch
   if count my-out-streams = 0 [
-    let trash grow 360
+    let trash grow_angle 360
   ]
-  let trash grow 360
+  let trash grow_angle 360
 end
 
 ;;just adds a downstream hyphal cell and returns its id
-to-report grow [angle]
+to-report grow_angle [angle]
   let dir heading + (random-float angle) - (angle / 2)
+  report grow dir
+end
+
+to-report grow [dir]
   let new_x xcor + (size / 2) * (sin(dir) + sin(heading))
   let new_y ycor + (size / 2) * (cos(dir) + cos(heading))
 
@@ -352,7 +358,6 @@ to-report grow [angle]
   create-stream-to turtle who_child [tie hide-link]
   set food food / 2
   report who_child
-
 end
 
 to hyphal_color
@@ -385,10 +390,16 @@ to-report chemotaxis_heading [l]
       ]
     ]
   ]
-  report max_p
+  set x 0
+  set y 0
+  ask patchmax_p [
+    set y ycor
+    set x xcor
+  ]
+  report (list x y )
 end
 
-;;gets the locatiio
+;;gets the two points and shows the heading from a to b (this is used to get the heading from the tip of the cell to the gradient)
 to-report heading_a_to_b [a b]
   let x1 first a
   let y1 last a
@@ -403,6 +414,70 @@ to-report heading_a_to_b [a b]
   report angle
 
 end
+
+;;this new style of growing takes into account the concentration gradient of algal signals in the media
+to grow_hyphae_new_style
+  let r_val max [food] of hyphae
+  let fungi [who] of hyphae with [food > hyphal_growth_threshold] ;;needs to meet the basic requirements for having enough food for mitosis
+  if length fungi > 0 [
+    let i 0
+    while [i < length fungi] [
+      let id item i fungi
+      ask turtle id [
+        if random r_val < food [
+          let tip get-tip id
+          let chem chemotaxis_heading tip
+          let dir heading_a_to_b tip chem
+          ifelse random r_val > (food / (branching * 0.8 * (count my-symbios + 1))) [
+            grow_branch_new dir
+          ]
+          [grow_non_branch_new dir]
+        ]
+      ]
+      set i i + 1
+    ]
+  ]
+
+end
+
+to grow_branch_new [dir]
+  let intercalary? false
+  if count my-out-streams > 0 [set intercalary? true]
+  let child_id grow dir
+  ;;if intercalary (the cell is nonapical), we need to move the downstream cells to accomodate for the new growth
+  if intercalary? [
+    ;;getting the previous downstreams so I can move them to be after the new child
+    ask my-out-streams with [[who] of end2 != child_id] [
+      ask end2[
+        let len ([size] of turtle child_id) / 2
+        set xcor ([xcor] of turtle child_id) + len * (sin (heading) + sin ([heading] of turtle child_id))
+        set ycor ([ycor] of turtle child_id) + len * (cos (heading) + cos ([heading] of turtle child_id))
+        create-stream-from turtle child_id [tie hide-link]
+      ]
+      die
+    ]
+  ]
+
+end
+
+
+to grow_non_branch_new [dir]
+  ;;if apical, we need to grow twice; once to create a downstream, and another to create a branch
+  if count my-out-streams = 0 [
+    let trash grow dir
+  ]
+  let trash grow dir
+
+end
+
+;;;
+
+; pick smth to grow
+;then get its tip
+;then get the chemotaxis location from the tip
+;then calculate the heading from the tip to the chemotaxis dir
+;take this heading and send it to grow [dir]
+
 
 @#$#@#$#@
 GRAPHICS-WINDOW
@@ -483,8 +558,8 @@ CHOOSER
 130
 growth_form
 growth_form
-"old style"
-0
+"old style" "new style"
+1
 
 SWITCH
 20
