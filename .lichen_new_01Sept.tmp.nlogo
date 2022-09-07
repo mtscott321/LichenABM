@@ -394,7 +394,7 @@ to-report chemotaxis_heading [l]
   set y 0
   ask max_p [
     set y pycor
-    set x xcor
+    set x pxcor
   ]
   report (list x y )
 end
@@ -410,6 +410,9 @@ to-report heading_a_to_b [a b]
   let dx_ x2 - x1
   let dy_ y2 - y1
 
+  if dx_ = 0 and dy_ = 0 [
+    report random 36
+  ]
   let angle atan dx_ dy_
   report angle
 
@@ -568,7 +571,7 @@ SWITCH
 178
 show_algal_signals
 show_algal_signals
-1
+0
 1
 -1000
 

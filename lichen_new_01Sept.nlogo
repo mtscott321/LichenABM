@@ -410,6 +410,9 @@ to-report heading_a_to_b [a b]
   let dx_ x2 - x1
   let dy_ y2 - y1
 
+  if dx_ = 0 and dy_ = 0 [
+    report -1
+  ]
   let angle atan dx_ dy_
   report angle
 
@@ -428,10 +431,12 @@ to grow_hyphae_new_style
           let tip get-tip id
           let chem chemotaxis_heading tip
           let dir heading_a_to_b tip chem
-          ifelse random r_val > (food / (branching * 0.8 * (count my-symbios + 1))) [
-            grow_branch_new dir
+          if dir != -1 [
+            ifelse random r_val > (food / (branching * 0.8 * (count my-symbios + 1))) [
+              grow_branch_new dir
+            ]
+            [grow_non_branch_new dir]
           ]
-          [grow_non_branch_new dir]
         ]
       ]
       set i i + 1
