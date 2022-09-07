@@ -392,8 +392,8 @@ to-report chemotaxis_heading [l]
   ]
   set x 0
   set y 0
-  ask patchmax_p [
-    set y ycor
+  ask max_p [
+    set y pycor
     set x xcor
   ]
   report (list x y )
