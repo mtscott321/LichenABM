@@ -23,6 +23,9 @@ globals [hyphae_size
   turn_radius
   hyphal_growth_threshold
   branching
+
+  num_branched
+  num_non_branched
 ]
 
 to setup
@@ -40,6 +43,9 @@ to setup
   set turn_radius 100
   set hyphal_growth_threshold 100
   set branching 0.87
+
+  set num_branched 0
+  set num_non_branched 0
 
   ifelse starting_state = "random" [
     ;;creating the starting agents. This will eventually depend on the way we want to start (random, isidia, soredia, etc)
@@ -77,6 +83,9 @@ to go
   ifelse growth_form = "old style" [
     grow_hyphae_old_style]
   [grow_hyphae_new_style]
+
+  ;;hyphae will remove algal_signals from adjacent patches
+  remove_signals
 
   ;;change color of the hyphae to be proportional to the food they have
   hyphal_color
@@ -239,7 +248,7 @@ to signals_diffuse
   if show_algal_signals [ask patches [set pcolor black]]
   ask patches with [temp_algal_signals + algal_signals > 0] [
     set algal_signals temp_algal_signals
-    if show_algal_signals [set pcolor blue]
+    if show_algal_signals [set pcolor scale-color blue algal_signals 100 0]
   ]
 end
 
@@ -306,6 +315,7 @@ end
 
 ;;here are the two main functions (grow branch and grow nonbranch) that all the growth form functions will use
 to grow_non_branch
+  set num_non_branched num_non_branched + 1
   let intercalary? false
   if count my-out-streams > 0 [set intercalary? true]
   let child_id grow_angle turn_radius
@@ -327,6 +337,7 @@ end
 
 ;;ideally, update to include Goodenough's data on intercalary vs. apical branching angles
 to grow_branch
+  set num_branched num_branched + 1
   ;;if apical, we need to grow twice; once to create a downstream, and another to create a branch
   if count my-out-streams = 0 [
     let trash grow_angle 360
@@ -396,7 +407,7 @@ to-report chemotaxis_heading [l]
     set y pycor
     set x pxcor
   ]
-  report (list x y )
+  report (list x y max_val)
 end
 
 ;;gets the two points and shows the heading from a to b (this is used to get the heading from the tip of the cell to the gradient)
@@ -411,7 +422,7 @@ to-report heading_a_to_b [a b]
   let dy_ y2 - y1
 
   if dx_ = 0 and dy_ = 0 [
-    report random 36
+    report -1
   ]
   let angle atan dx_ dy_
   report angle
@@ -427,14 +438,19 @@ to grow_hyphae_new_style
     while [i < length fungi] [
       let id item i fungi
       ask turtle id [
-        if random r_val < food [
-          let tip get-tip id
-          let chem chemotaxis_heading tip
-          let dir heading_a_to_b tip chem
-          ifelse random r_val > (food / (branching * 0.8 * (count my-symbios + 1))) [
-            grow_branch_new dir
+        let tip get-tip id
+        let temp chemotaxis_heading tip
+        let max_val last temp
+        let chem_loc (list item 0 temp item 1 temp)
+        if random r_val < food * max_val [
+          let dir heading_a_to_b tip chem_loc
+          if dir != -1 [
+            ;;if we can not-branch
+            ifelse abs(heading - dir) < (turn_radius  / 2) [
+             grow_non_branch_new dir
+            ] [if random-float 1 < 0.02 [grow_branch_new dir]]
+
           ]
-          [grow_non_branch_new dir]
         ]
       ]
       set i i + 1
@@ -443,7 +459,8 @@ to grow_hyphae_new_style
 
 end
 
-to grow_branch_new [dir]
+to grow_non_branch_new [dir]
+  set num_non_branched num_non_branched + 1
   let intercalary? false
   if count my-out-streams > 0 [set intercalary? true]
   let child_id grow dir
@@ -464,12 +481,46 @@ to grow_branch_new [dir]
 end
 
 
-to grow_non_branch_new [dir]
+to grow_branch_new [dir]
+  set num_branched num_branched + 1
   ;;if apical, we need to grow twice; once to create a downstream, and another to create a branch
   if count my-out-streams = 0 [
     let trash grow dir
   ]
   let trash grow dir
+
+end
+
+
+to remove_signals
+  ask hyphae [
+    ask neighbors [
+      set algal_signals 0
+    ]
+  ]
+
+end
+
+
+to test [id]
+  ask turtle id [
+  let tip get-tip id
+  let temp chemotaxis_heading tip
+  let max_val last temp
+  let chem_loc (list item 0 temp item 1 temp)
+  let dir heading_a_to_b tip chem_loc
+  output-show dir
+  output-show heading
+  if dir != -1 [
+    ;;if we can not-branch
+    ifelse abs(heading - dir) < (turn_radius  / 2) [
+        output-show "intercalary"
+     grow_non_branch_new dir
+    ] [if random-float 1 < -100 [
+          grow_branch_new dir output-show "branching"]
+      ]
+  ]
+  ]
 
 end
 
@@ -480,7 +531,6 @@ end
 ;then get the chemotaxis location from the tip
 ;then calculate the heading from the tip to the chemotaxis dir
 ;take this heading and send it to grow [dir]
-
 
 @#$#@#$#@
 GRAPHICS-WINDOW
@@ -571,9 +621,28 @@ SWITCH
 178
 show_algal_signals
 show_algal_signals
-0
+1
 1
 -1000
+
+PLOT
+15
+240
+215
+390
+Branching vs. Not (Branching is blue)
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -13345367 true "" "plot num_branched"
+"pen-1" 1.0 0 -955883 true "" "plot num_non_branched"
 
 @#$#@#$#@
 ## TO DO
@@ -584,7 +653,16 @@ that means that downstream cells won't grow, because tehy won't grow against a g
 
 so, check to see if cells grow, proportional to their food adn the intensity of the cocnentration gradient. then, decide if it's better ot grow a new cell, or branch (?). at least for intercalary. for apical, they're the same. 
 
-(a general understanding of what the model is trying to show or explain)
+
+06 Sept
+
+Now jsut need to add in to make it os their growth prob is proportionalt to the gradient intensity. Also maybe like literally any unit tests...
+
+change it also so it's not just compating neighbors 4, but checking patches with distance the length of one hyphal cell. then, the difference between self algal_signals and remote is stored as a coeff for the random variable that determines if they grow based on food.
+
+also definitely need to figure out how to do a color gradient for the chemotaxis stuff, because I really need to know what those colors are. 
+
+also, intercalary growth cannot be backwards, so need to figure out how to prevent that. 
 
 ## HOW IT WORKS
 
