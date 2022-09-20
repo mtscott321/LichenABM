@@ -531,7 +531,6 @@ end
 ;then get the chemotaxis location from the tip
 ;then calculate the heading from the tip to the chemotaxis dir
 ;take this heading and send it to grow [dir]
-
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
